@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Freelance Job Filter",
+  "version": "1.0.0",
+  "description": "Filters freelance jobs from multiple platforms based on your skill profile",
+
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "scripting",
+    "tabs"
+  ],
+
+  "host_permissions": [
+    "https://www.upwork.com/*",
+    "https://www.workana.com/*",
+    "https://www.99freelas.com.br/*",
+    "https://www.linkedin.com/*",
+    "https://br.indeed.com/*",
+    "https://www.gupy.io/*"
+  ],
+
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "icons": {
+    "128": "icons/icon128.png"
+  }
+}
