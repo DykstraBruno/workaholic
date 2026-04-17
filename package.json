@@ -8,10 +8,13 @@
   },
   "devDependencies": {
     "jest": "^29.0.0",
-    "jest-environment-node": "^29.0.0"
+    "jest-environment-node": "^29.0.0",
+    "jsdom": "^22.1.0"
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"]
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
   }
 }

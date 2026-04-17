@@ -111,12 +111,15 @@ function parseUpwork(html) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(String(html || ''), 'text/html');
 
-    let cards = [];
+    const cards = [];
+    const seen = new Set();
     for (const selector of SELECTORS.card) {
       const found = doc.querySelectorAll(selector);
-      if (found.length) {
-        cards = Array.from(found);
-        break;
+      for (const el of found) {
+        if (!seen.has(el)) {
+          seen.add(el);
+          cards.push(el);
+        }
       }
     }
 
