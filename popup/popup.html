@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Freelance Job Filter</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="header">
+    <span class="header-logo">Workaholic</span>
+    <nav class="tabs" role="tablist">
+      <button class="tab-btn active" role="tab" data-tab="jobs"  aria-selected="true"  aria-controls="tab-jobs">Vagas</button>
+      <button class="tab-btn"        role="tab" data-tab="profile" aria-selected="false" aria-controls="tab-profile">Perfil</button>
+    </nav>
+  </header>
+
+  <main class="main">
+
+    <!-- ============================================================ VAGAS -->
+    <section id="tab-jobs" class="tab-pane active" role="tabpanel">
+
+      <div class="jobs-toolbar">
+        <button id="fetch-now-btn" class="btn btn--primary">Buscar agora</button>
+        <span id="last-fetch" class="last-fetch-text">—</span>
+      </div>
+
+      <div id="health-warnings"></div>
+
+      <ul id="job-list" class="job-list" aria-live="polite"></ul>
+
+      <p id="jobs-empty" class="empty-state" hidden>
+        Nenhuma vaga encontrada ainda.<br />
+        Configure seu perfil e clique em <strong>Buscar agora</strong>.
+      </p>
+
+    </section>
+
+    <!-- =========================================================== PERFIL -->
+    <section id="tab-profile" class="tab-pane" role="tabpanel" hidden>
+
+      <!-- Skills -->
+      <div class="field-group">
+        <label class="field-label">Habilidades</label>
+        <div class="input-row">
+          <input id="skill-input" class="input" type="text" placeholder="ex: react, python…" />
+          <button id="add-skill-btn" class="btn btn--secondary">Adicionar</button>
+        </div>
+        <div id="skills-tags" class="tags-container" aria-label="Habilidades adicionadas"></div>
+      </div>
+
+      <!-- Área -->
+      <div class="field-group">
+        <label class="field-label" for="profile-area">Área</label>
+        <select id="profile-area" class="input">
+          <option value="development">Desenvolvimento</option>
+          <option value="design">Design</option>
+          <option value="marketing">Marketing</option>
+          <option value="writing">Redação</option>
+          <option value="data">Dados</option>
+          <option value="mobile">Mobile</option>
+        </select>
+      </div>
+
+      <!-- Budget -->
+      <div class="field-group">
+        <label class="field-label">Orçamento mínimo</label>
+        <div class="input-row">
+          <input id="profile-min-budget" class="input input--number" type="number" min="0" placeholder="0" />
+          <select id="profile-currency" class="input input--currency">
+            <option value="BRL">BRL</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Blacklist -->
+      <div class="field-group">
+        <label class="field-label">Palavras bloqueadas</label>
+        <div class="input-row">
+          <input id="blacklist-input" class="input" type="text" placeholder="ex: urgente, estágio…" />
+          <button id="add-blacklist-btn" class="btn btn--secondary">Adicionar</button>
+        </div>
+        <div id="blacklist-tags" class="tags-container" aria-label="Palavras bloqueadas"></div>
+      </div>
+
+      <!-- Sites -->
+      <div class="field-group">
+        <label class="field-label">Plataformas</label>
+        <div class="sites-grid">
+          <label class="checkbox-label"><input id="site-upwork"    type="checkbox" checked /> Upwork</label>
+          <label class="checkbox-label"><input id="site-workana"   type="checkbox" checked /> Workana</label>
+          <label class="checkbox-label"><input id="site-freelas99" type="checkbox" checked /> 99Freelas</label>
+          <label class="checkbox-label"><input id="site-linkedin"  type="checkbox" checked /> LinkedIn</label>
+          <label class="checkbox-label"><input id="site-indeed"    type="checkbox" checked /> Indeed</label>
+          <label class="checkbox-label"><input id="site-gupy"      type="checkbox" checked /> Gupy</label>
+        </div>
+      </div>
+
+      <!-- Frequência -->
+      <div class="field-group">
+        <label class="field-label" for="profile-interval">Frequência de busca</label>
+        <select id="profile-interval" class="input">
+          <option value="30">30 minutos</option>
+          <option value="60" selected>1 hora</option>
+          <option value="180">3 horas</option>
+          <option value="360">6 horas</option>
+          <option value="1440">1 vez por dia</option>
+        </select>
+      </div>
+
+      <button id="save-profile-btn" class="btn btn--primary btn--full">Salvar</button>
+
+    </section>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>
