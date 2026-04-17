@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <body>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "JobPosting",
+            "title": "Desenvolvedor Full Stack",
+            "description": "<p>Atuar com Node.js e React em produto SaaS.</p>",
+            "skills": ["Node.js", "React"],
+            "datePosted": "2026-04-10T10:00:00.000Z",
+            "url": "/viewjob?jk=abc123",
+            "baseSalary": {
+              "@type": "MonetaryAmount",
+              "currency": "BRL",
+              "value": {
+                "@type": "QuantitativeValue",
+                "minValue": 3000,
+                "maxValue": 5000
+              }
+            }
+          },
+          {
+            "@type": "JobPosting",
+            "title": "Analista de Dados",
+            "description": "Criar dashboards e monitorar KPIs.",
+            "skillsRequired": "SQL, Python",
+            "datePosted": "2026-04-11",
+            "url": "https://br.indeed.com/viewjob?jk=def456",
+            "baseSalary": {
+              "@type": "MonetaryAmount",
+              "currency": "BRL",
+              "value": 4200
+            }
+          },
+          {
+            "@type": "JobPosting",
+            "title": "Redator de Conteudo",
+            "description": "Produzir conteudo para blog de tecnologia.",
+            "skills": ["Copywriting"],
+            "datePosted": "2026-04-12",
+            "url": "/viewjob?jk=ghi789"
+          }
+        ]
+      }
+    </script>
+
+    <article data-testid="jobsearch-SerpJobCard">
+      <h2><a href="/viewjob?jk=css1">Nao deve ser usado quando JSON-LD existe</a></h2>
+      <div data-testid="job-snippet">Descricao CSS fallback</div>
+    </article>
+  </body>
+</html>
