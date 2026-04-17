@@ -192,7 +192,7 @@ function defaultProfile() {
     skills: [], area: 'development', minBudget: null, currency: 'BRL',
     languages: ['pt', 'en'], blacklist: [],
     sites: Object.fromEntries(SITES.map((s) => [s, true])),
-    fetchInterval: 60,
+    fetchInterval: 1,
   };
 }
 
@@ -206,7 +206,7 @@ async function loadProfileTab() {
   document.getElementById('profile-area').value       = profile.area        ?? 'development';
   document.getElementById('profile-min-budget').value = profile.minBudget   ?? '';
   document.getElementById('profile-currency').value   = profile.currency    ?? 'BRL';
-  document.getElementById('profile-interval').value   = profile.fetchInterval ?? 60;
+  document.getElementById('profile-interval').value   = profile.fetchInterval ?? 1;
 
   for (const site of SITES) {
     const cb = document.getElementById(`site-${site}`);

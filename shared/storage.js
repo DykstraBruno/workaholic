@@ -153,14 +153,30 @@ async function getHealthStatus(site) {
   return result[key] ?? { consecutiveFailures: 0, lastSuccess: null };
 }
 
-module.exports = {
-  saveProfile,
-  getProfile,
-  markAsSeen,
-  hasBeenSeen,
-  getSeen,
-  saveJobs,
-  getJobs,
-  saveHealthStatus,
-  getHealthStatus,
-};
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    saveProfile,
+    getProfile,
+    markAsSeen,
+    hasBeenSeen,
+    getSeen,
+    saveJobs,
+    getJobs,
+    saveHealthStatus,
+    getHealthStatus,
+  };
+}
+
+if (typeof globalThis !== 'undefined') {
+  Object.assign(globalThis, {
+    saveProfile,
+    getProfile,
+    markAsSeen,
+    hasBeenSeen,
+    getSeen,
+    saveJobs,
+    getJobs,
+    saveHealthStatus,
+    getHealthStatus,
+  });
+}
