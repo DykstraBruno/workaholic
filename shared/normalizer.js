@@ -133,4 +133,10 @@ function normalize(raw, site) {
   };
 }
 
-module.exports = { normalize };
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { normalize };
+}
+
+if (typeof globalThis !== 'undefined') {
+  globalThis.normalize = normalize;
+}

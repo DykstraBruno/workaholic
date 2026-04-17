@@ -1,9 +1,9 @@
 'use strict';
 
 importScripts(
-  '../shared/storage.js',
-  '../shared/normalizer.js',
-  '../shared/filter.js',
+	'../shared/storage.js',
+	'../shared/normalizer.js',
+	'../shared/filter.js',
 );
 
 // ---------------------------------------------------------------------------
@@ -12,233 +12,319 @@ importScripts(
 
 const ALARM_NAME = 'fetch-jobs';
 const SCRAPER_TIMEOUT_MS = 30_000;
+const DEFAULT_FETCH_INTERVAL_MINUTES = 1;
 
 const SITE_URLS = {
-  upwork:    'https://www.upwork.com/nx/find-work/',
-  workana:   'https://www.workana.com/jobs',
-  freelas99: 'https://www.99freelas.com.br/projects',
-  linkedin:  'https://www.linkedin.com/jobs/',
-  indeed:    'https://br.indeed.com/jobs',
-  gupy:      'https://portal.gupy.io/',
+	upwork: 'https://www.upwork.com/nx/search/jobs',
+	workana: 'https://www.workana.com/jobs',
+	freelas99: 'https://www.99freelas.com.br/projects',
+	linkedin: 'https://www.linkedin.com/jobs/search',
+	indeed: 'https://br.indeed.com/jobs',
+	gupy: 'https://www.gupy.io/vagas-emprego',
 };
 
 const SCRAPER_PATHS = {
-  upwork:    '../scrapers/upwork.js',
-  workana:   '../scrapers/workana.js',
-  freelas99: '../scrapers/freelas99.js',
-  linkedin:  '../scrapers/linkedin.js',
-  indeed:    '../scrapers/indeed.js',
-  gupy:      '../scrapers/gupy.js',
+	upwork: 'scrapers/upwork.js',
+	workana: 'scrapers/workana.js',
+	freelas99: 'scrapers/freelas99.js',
+	linkedin: 'scrapers/linkedin.js',
+	indeed: 'scrapers/indeed.js',
+	gupy: 'scrapers/gupy.js',
 };
+
+const SITE_LABELS = {
+	upwork: 'Upwork',
+	workana: 'Workana',
+	freelas99: '99Freelas',
+	linkedin: 'LinkedIn',
+	indeed: 'Indeed',
+	gupy: 'Gupy',
+};
+
+// ---------------------------------------------------------------------------
+// Low-level storage helper (local)
+// ---------------------------------------------------------------------------
+
+function localSet(data) {
+	return new Promise((resolve, reject) => {
+		chrome.storage.local.set(data, () => {
+			if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+			else resolve();
+		});
+	});
+}
+
+function localGet(keys) {
+	return new Promise((resolve, reject) => {
+		chrome.storage.local.get(keys, (result) => {
+			if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+			else resolve(result);
+		});
+	});
+}
 
 // ---------------------------------------------------------------------------
 // Alarm management
 // ---------------------------------------------------------------------------
 
 function setupAlarm(intervalMinutes) {
-  chrome.alarms.clear(ALARM_NAME, () => {
-    chrome.alarms.create(ALARM_NAME, {
-      delayInMinutes: intervalMinutes,
-      periodInMinutes: intervalMinutes,
-    });
-  });
+	chrome.alarms.clear(ALARM_NAME, () => {
+		chrome.alarms.create(ALARM_NAME, {
+			delayInMinutes: intervalMinutes,
+			periodInMinutes: intervalMinutes,
+		});
+	});
 }
 
 // ---------------------------------------------------------------------------
-// Tab helpers
+// Tab + script helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Opens a tab in the background and resolves when it finishes loading.
- * @param {string} url
- * @returns {Promise<chrome.tabs.Tab>}
- */
-function openTabAndWaitForLoad(url) {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.create({ url, active: false }, (tab) => {
-      if (chrome.runtime.lastError) {
-        return reject(new Error(chrome.runtime.lastError.message));
-      }
+function waitForTabLoad(tabId, timeoutMs) {
+	return new Promise((resolve, reject) => {
+		const timeout = setTimeout(() => {
+			chrome.tabs.onUpdated.removeListener(listener);
+			reject(new Error(`Tab load timeout: ${tabId}`));
+		}, timeoutMs);
 
-      function listener(tabId, changeInfo) {
-        if (tabId === tab.id && changeInfo.status === 'complete') {
-          chrome.tabs.onUpdated.removeListener(listener);
-          resolve(tab);
-        }
-      }
+		function listener(updatedTabId, changeInfo) {
+			if (updatedTabId === tabId && changeInfo.status === 'complete') {
+				clearTimeout(timeout);
+				chrome.tabs.onUpdated.removeListener(listener);
+				resolve();
+			}
+		}
 
-      chrome.tabs.onUpdated.addListener(listener);
-    });
-  });
+		chrome.tabs.onUpdated.addListener(listener);
+	});
 }
 
-/**
- * Injects the scraper content script into a tab and waits for it to send
- * back parsed job data via runtime.sendMessage.
- * Rejects after SCRAPER_TIMEOUT_MS if no message arrives.
- * @param {number} tabId
- * @param {string} scraperPath
- * @returns {Promise<object[]>}
- */
+function createWorkerTab() {
+	return new Promise((resolve, reject) => {
+		chrome.tabs.create({ url: 'about:blank', active: false, pinned: true }, (tab) => {
+			if (chrome.runtime.lastError) {
+				reject(new Error(chrome.runtime.lastError.message));
+				return;
+			}
+			resolve(tab);
+		});
+	});
+}
+
+function navigateTabAndWaitForLoad(tabId, url) {
+	return new Promise((resolve, reject) => {
+		chrome.tabs.update(tabId, { url }, (tab) => {
+			if (chrome.runtime.lastError) {
+				reject(new Error(chrome.runtime.lastError.message));
+				return;
+			}
+
+			waitForTabLoad(tab.id, SCRAPER_TIMEOUT_MS)
+				.then(resolve)
+				.catch(reject);
+		});
+	});
+}
+
+function closeTabQuietly(tabId) {
+	return new Promise((resolve) => {
+		chrome.tabs.remove(tabId, () => {
+			// Consume runtime.lastError to avoid noisy "No tab with id" warnings
+			// when the tab was already closed by the browser/user.
+			if (chrome.runtime.lastError) {
+				resolve();
+				return;
+			}
+			resolve();
+		});
+	});
+}
+
 function injectScraperAndCollect(tabId, scraperPath) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      chrome.runtime.onMessage.removeListener(messageListener);
-      reject(new Error(`Scraper timeout for tab ${tabId}`));
-    }, SCRAPER_TIMEOUT_MS);
+	return new Promise((resolve, reject) => {
+		let settled = false;
 
-    function messageListener(message, sender) {
-      if (sender.tab && sender.tab.id === tabId && message.type === 'SCRAPER_RESULTS') {
-        clearTimeout(timer);
-        chrome.runtime.onMessage.removeListener(messageListener);
-        resolve(message.jobs ?? []);
-      }
-    }
+		const timeout = setTimeout(() => {
+			if (settled) return;
+			settled = true;
+			chrome.runtime.onMessage.removeListener(messageListener);
+			reject(new Error(`Scraper timeout in tab ${tabId}`));
+		}, SCRAPER_TIMEOUT_MS);
 
-    chrome.runtime.onMessage.addListener(messageListener);
+		function messageListener(message, sender) {
+			if (settled) return;
+			if (!sender.tab || sender.tab.id !== tabId) return;
+			if (!message || !Array.isArray(message.jobs)) return;
 
-    chrome.scripting.executeScript(
-      { target: { tabId }, files: [scraperPath] },
-      () => {
-        if (chrome.runtime.lastError) {
-          clearTimeout(timer);
-          chrome.runtime.onMessage.removeListener(messageListener);
-          reject(new Error(chrome.runtime.lastError.message));
-        }
-      },
-    );
-  });
+			settled = true;
+			clearTimeout(timeout);
+			chrome.runtime.onMessage.removeListener(messageListener);
+			resolve(message.jobs);
+		}
+
+		chrome.runtime.onMessage.addListener(messageListener);
+
+		chrome.scripting.executeScript(
+			{
+				target: { tabId },
+				files: [
+					`parsers/${scraperPath.split('/').pop().replace('.js', '.parser.js')}`,
+					scraperPath,
+				],
+			},
+			() => {
+				if (chrome.runtime.lastError && !settled) {
+					settled = true;
+					clearTimeout(timeout);
+					chrome.runtime.onMessage.removeListener(messageListener);
+					reject(new Error(chrome.runtime.lastError.message));
+				}
+			},
+		);
+	});
 }
 
 // ---------------------------------------------------------------------------
-// Per-site scrape
+// Per-site execution
 // ---------------------------------------------------------------------------
 
-/**
- * Scrapes a single site. Always resolves with { site, jobs, error }.
- * @param {string} site
- * @returns {Promise<{ site: string, jobs: object[], error: Error|null }>}
- */
-async function scrapeSite(site) {
-  let tab = null;
-  try {
-    tab = await openTabAndWaitForLoad(SITE_URLS[site]);
-    const rawJobs = await injectScraperAndCollect(tab.id, SCRAPER_PATHS[site]);
-    return { site, jobs: rawJobs, error: null };
-  } catch (error) {
-    return { site, jobs: [], error };
-  } finally {
-    if (tab) {
-      chrome.tabs.remove(tab.id, () => { /* ignore */ });
-    }
-  }
+async function scrapeSiteInTab(tabId, site) {
+	try {
+		await navigateTabAndWaitForLoad(tabId, SITE_URLS[site]);
+		const jobs = await injectScraperAndCollect(tabId, SCRAPER_PATHS[site]);
+		return { site, jobs, failed: false };
+	} catch {
+		return { site, jobs: [], failed: true };
+	}
 }
 
 // ---------------------------------------------------------------------------
-// Badge
+// Notifications + badge
 // ---------------------------------------------------------------------------
 
-function setBadge(count) {
-  const text = count > 0 ? String(count > 99 ? '99+' : count) : '';
-  chrome.action.setBadgeText({ text });
-  chrome.action.setBadgeBackgroundColor({ color: '#4F46E5' });
+function notifyJob(job) {
+	chrome.notifications.create(`job-${job.id}`, {
+		type: 'basic',
+		iconUrl: 'icons/icon128.png',
+		title: job.title || 'New job match',
+		message: `${SITE_LABELS[job.site] || job.site} - ${Math.round(job.score || 0)}% match`,
+	});
+}
+
+function notifyHealth(site, failures) {
+	chrome.notifications.create(`health-${site}`, {
+		type: 'basic',
+		iconUrl: 'icons/icon128.png',
+		title: 'Scraper health warning',
+		message: `${SITE_LABELS[site] || site} scraper may be broken (${failures} consecutive failures).`,
+	});
+}
+
+function setBadge(newJobsCount) {
+	const text = newJobsCount > 0 ? String(newJobsCount) : '';
+	chrome.action.setBadgeText({ text });
+	chrome.action.setBadgeBackgroundColor({ color: '#4F46E5' });
 }
 
 // ---------------------------------------------------------------------------
-// Notification helpers
+// Health status
 // ---------------------------------------------------------------------------
 
-function notifyNewJob(job) {
-  const notifId = `job-${job.id}`;
-  chrome.notifications.create(notifId, {
-    type: 'basic',
-    iconUrl: '../icons/icon128.png',
-    title: job.title,
-    message: `Nova vaga no ${job.site} — ${Math.round(job.score)}% match`,
-  });
-}
+async function updateSiteHealth(site, hasTechnicalFailure, resultsCount) {
+	const current = await getHealthStatus(site);
+	const failures = current.consecutiveFailures || 0;
+	const nowIso = new Date().toISOString();
 
-function notifyBrokenScraper(site) {
-  chrome.notifications.create(`health-${site}`, {
-    type: 'basic',
-    iconUrl: '../icons/icon128.png',
-    title: 'Scraper com falhas',
-    message: `O scraper do ${site} pode estar quebrado (3+ falhas consecutivas).`,
-  });
-}
+	// A successful technical scrape means the scraper is alive,
+	// even when no jobs are currently available.
+	if (!hasTechnicalFailure) {
+		await saveHealthStatus(site, {
+			consecutiveFailures: 0,
+			lastSuccess: resultsCount > 0 ? nowIso : (current.lastSuccess || nowIso),
+		});
+		return;
+	}
 
-// ---------------------------------------------------------------------------
-// Health update
-// ---------------------------------------------------------------------------
+	const nextFailures = failures + 1;
+	await saveHealthStatus(site, {
+		consecutiveFailures: nextFailures,
+		lastSuccess: current.lastSuccess || null,
+	});
 
-async function updateHealth(site, succeeded) {
-  const current = await getHealthStatus(site);
-
-  if (succeeded) {
-    await saveHealthStatus(site, { consecutiveFailures: 0, lastSuccess: new Date().toISOString() });
-  } else {
-    const failures = (current.consecutiveFailures ?? 0) + 1;
-    await saveHealthStatus(site, { consecutiveFailures: failures, lastSuccess: current.lastSuccess ?? null });
-    if (failures >= 3) {
-      notifyBrokenScraper(site);
-    }
-  }
+	if (nextFailures >= 3) {
+		notifyHealth(site, nextFailures);
+	}
 }
 
 // ---------------------------------------------------------------------------
-// Main fetch cycle
+// Fetch cycle
 // ---------------------------------------------------------------------------
 
 async function runFetchCycle() {
-  const profile = await getProfile();
-  if (!profile) return;
+	const profile = await getProfile();
+	if (!profile) return { ok: true, jobs: [] };
 
-  const activeSites = Object.entries(profile.sites ?? {})
-    .filter(([, enabled]) => enabled)
-    .map(([site]) => site);
+	const enabledSites = Object.entries(profile.sites || {})
+		.filter(([, enabled]) => enabled)
+		.map(([site]) => site);
 
-  if (!activeSites.length) return;
+	if (!enabledSites.length) {
+		await saveJobs([]);
+		setBadge(0);
+		await localSet({ lastFetch: new Date().toISOString() });
+		return { ok: true, jobs: [] };
+	}
 
-  // Scrape all active sites; failures are isolated
-  const results = await Promise.all(activeSites.map(scrapeSite));
+	const perSiteResults = [];
+	let workerTab = null;
 
-  const allNormalized = [];
-  for (const { site, jobs, error } of results) {
-    await updateHealth(site, !error && jobs.length > 0);
+	try {
+		workerTab = await createWorkerTab();
 
-    for (const raw of jobs) {
-      try {
-        allNormalized.push(normalize(raw, site));
-      } catch {
-        // skip malformed entries
-      }
-    }
-  }
+		for (const site of enabledSites) {
+			const result = await scrapeSiteInTab(workerTab.id, site);
+			perSiteResults.push(result);
+		}
+	} finally {
+		if (workerTab && workerTab.id != null) {
+			await closeTabQuietly(workerTab.id);
+		}
+	}
 
-  const filtered = filterJobs(allNormalized, profile);
+	const normalized = [];
+	for (const result of perSiteResults) {
+		const rawJobs = Array.isArray(result.jobs) ? result.jobs : [];
 
-  let newCount = 0;
-  for (const job of filtered) {
-    if (!(await hasBeenSeen(job.id))) {
-      notifyNewJob(job);
-      await markAsSeen(job.id);
-      newCount++;
-    }
-  }
+		for (const raw of rawJobs) {
+			try {
+				normalized.push(normalize(raw, result.site));
+			} catch {
+				// Ignore malformed job payload from a scraper.
+			}
+		}
 
-  await saveJobs(filtered);
-  await localSet({ lastFetch: new Date().toISOString() });
-  setBadge(newCount);
-}
+		await updateSiteHealth(result.site, result.failed, rawJobs.length);
+	}
 
-// Helper: direct access to local storage (storage.js doesn't export localSet)
-function localSet(data) {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.set(data, () => {
-      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-      else resolve();
-    });
-  });
+	const filtered = filterJobs(normalized, profile);
+
+	let newJobsCount = 0;
+	for (const job of filtered) {
+		if (job.score < 40) continue;
+
+		const seen = await hasBeenSeen(job.id);
+		if (seen) continue;
+
+		notifyJob(job);
+		await markAsSeen(job.id);
+		newJobsCount++;
+	}
+
+	await saveJobs(filtered);
+	await localSet({ lastFetch: new Date().toISOString() });
+	setBadge(newJobsCount);
+
+	return { ok: true, jobs: filtered };
 }
 
 // ---------------------------------------------------------------------------
@@ -246,47 +332,55 @@ function localSet(data) {
 // ---------------------------------------------------------------------------
 
 chrome.runtime.onInstalled.addListener(async () => {
-  const profile = await getProfile();
-  const interval = profile?.fetchInterval ?? 60;
-  setupAlarm(interval);
+	const profile = await getProfile();
+	const interval = profile?.fetchInterval || DEFAULT_FETCH_INTERVAL_MINUTES;
+	setupAlarm(interval);
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === ALARM_NAME) {
-    runFetchCycle().catch(console.error);
-  }
+	if (alarm.name !== ALARM_NAME) return;
+	runFetchCycle().catch(() => {});
 });
 
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'sync' && changes.profile) {
-    const newProfile = changes.profile.newValue;
-    const oldProfile = changes.profile.oldValue;
-    if (newProfile?.fetchInterval !== oldProfile?.fetchInterval) {
-      setupAlarm(newProfile.fetchInterval ?? 60);
-    }
-  }
+chrome.storage.onChanged.addListener((changes, areaName) => {
+	if (areaName !== 'sync') return;
+	if (!changes.profile) return;
+
+	const oldInterval = changes.profile.oldValue?.fetchInterval || DEFAULT_FETCH_INTERVAL_MINUTES;
+	const newInterval = changes.profile.newValue?.fetchInterval || DEFAULT_FETCH_INTERVAL_MINUTES;
+
+	if (oldInterval !== newInterval) {
+		setupAlarm(newInterval);
+	}
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.type === 'FETCH_NOW') {
-    runFetchCycle()
-      .then(() => sendResponse({ ok: true }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }));
-    return true; // keep channel open for async response
-  }
+	if (!message || !message.type) return;
 
-  if (message.type === 'GET_JOBS') {
-    getJobs()
-      .then((jobs) => sendResponse({ jobs }))
-      .catch((err) => sendResponse({ jobs: [], error: err.message }));
-    return true;
-  }
+	if (message.type === 'FETCH_NOW') {
+		runFetchCycle()
+			.then((result) => sendResponse({ ok: true, result }))
+			.catch((error) => sendResponse({ ok: false, error: error.message }));
+		return true;
+	}
 
-  if (message.type === 'GET_HEALTH') {
-    const sites = ['upwork', 'workana', 'freelas99', 'linkedin', 'indeed', 'gupy'];
-    Promise.all(sites.map(async (s) => [s, await getHealthStatus(s)]))
-      .then((entries) => sendResponse({ health: Object.fromEntries(entries) }))
-      .catch((err) => sendResponse({ health: {}, error: err.message }));
-    return true;
-  }
+	if (message.type === 'GET_JOBS') {
+		getJobs()
+			.then((jobs) => sendResponse({ ok: true, jobs }))
+			.catch((error) => sendResponse({ ok: false, error: error.message }));
+		return true;
+	}
+
+	if (message.type === 'GET_HEALTH') {
+		const sites = ['upwork', 'workana', 'freelas99', 'linkedin', 'indeed', 'gupy'];
+
+		Promise.all(sites.map(async (site) => ({ site, status: await getHealthStatus(site) })))
+			.then((entries) => {
+				const health = Object.fromEntries(entries.map((item) => [item.site, item.status]));
+				sendResponse({ ok: true, health });
+			})
+			.catch((error) => sendResponse({ ok: false, error: error.message }));
+
+		return true;
+	}
 });

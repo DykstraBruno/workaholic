@@ -123,4 +123,11 @@ function filterJobs(jobs, profile) {
   return results;
 }
 
-module.exports = { filterJobs, SYNONYMS };
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { filterJobs, SYNONYMS };
+}
+
+if (typeof globalThis !== 'undefined') {
+  globalThis.filterJobs = filterJobs;
+  globalThis.SYNONYMS = SYNONYMS;
+}
