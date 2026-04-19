@@ -479,3 +479,10 @@ select.input { cursor: pointer; }
 .btn--success { background: var(--color-success) !important; }
 
 .btn--full { width: 100%; }
+
+#tab-profile #save-profile-btn.btn.btn--primary.btn--full {
+  height: 44px !important;
+  min-height: 44px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
