@@ -36,10 +36,6 @@
 
   function captureAndSend() {
     try {
-      if (countCards() < 3) {
-        send([]);
-        return;
-      }
       const html = document.body ? document.body.innerHTML : '';
       const jobs = safeParse(html);
       send(jobs);
@@ -65,7 +61,7 @@
     };
 
     const observer = new MutationObserver(() => {
-      if (countCards() >= 3) {
+      if (countCards() >= 1) {
         finish();
       }
     });
@@ -79,10 +75,10 @@
       if (settled) return;
       settled = true;
       observer.disconnect();
-      send([]);
+      captureAndSend();
     }, TIMEOUT_MS);
 
-    if (document.readyState === 'complete' && countCards() >= 3) {
+    if (document.readyState === 'complete' && countCards() >= 1) {
       finish();
     }
   } catch {

@@ -1,3 +1,4 @@
+(function () {
 'use strict';
 
 /**
@@ -73,6 +74,21 @@ function parseSkills(card) {
   return out;
 }
 
+function compactText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function fallbackDescription(card, title) {
+  const text = compactText(card.textContent || '');
+  if (!text) return '';
+
+  if (title && text.startsWith(title)) {
+    return compactText(text.slice(title.length));
+  }
+
+  return text;
+}
+
 function parseBudget(text) {
   if (!text || !text.trim()) return null;
 
@@ -127,7 +143,7 @@ function parseUpwork(html) {
 
     return cards.map((card) => {
       const title = firstText(card, SELECTORS.title);
-      const description = firstText(card, SELECTORS.description);
+      const description = firstText(card, SELECTORS.description) || fallbackDescription(card, title);
       const skills = parseSkills(card);
       const budgetText = firstText(card, SELECTORS.budget);
       const budget = parseBudget(budgetText);
@@ -159,3 +175,5 @@ if (typeof globalThis !== 'undefined') {
   globalThis.parseUpwork = parseUpwork;
   globalThis.UPWORK_SELECTORS = SELECTORS;
 }
+
+})();

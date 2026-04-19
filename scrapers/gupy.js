@@ -1,7 +1,7 @@
 'use strict';
 
 (function runGupyScraper() {
-  const TARGET_PATH = '/vagas-emprego';
+  const TARGET_PATHS = ['/job-search', '/vagas-emprego'];
   const TIMEOUT_MS = 15_000;
 
   function send(jobs) {
@@ -32,10 +32,6 @@
 
   function captureAndSend() {
     try {
-      if (countCards() < 2) {
-        send([]);
-        return;
-      }
       const html = document.body ? document.body.innerHTML : '';
       const jobs = safeParse(html);
       send(jobs);
@@ -45,7 +41,8 @@
   }
 
   try {
-    const isTargetPage = window.location.pathname.includes(TARGET_PATH);
+    const pathname = window.location.pathname || '';
+    const isTargetPage = TARGET_PATHS.some((targetPath) => pathname.includes(targetPath));
     if (!isTargetPage) {
       send([]);
       return;
@@ -61,7 +58,7 @@
     };
 
     const observer = new MutationObserver(() => {
-      if (countCards() >= 2) {
+      if (countCards() >= 1) {
         finish();
       }
     });
@@ -75,10 +72,10 @@
       if (settled) return;
       settled = true;
       observer.disconnect();
-      send([]);
+      captureAndSend();
     }, TIMEOUT_MS);
 
-    if (document.readyState === 'complete' && countCards() >= 2) {
+    if (document.readyState === 'complete' && countCards() >= 1) {
       finish();
     }
   } catch {

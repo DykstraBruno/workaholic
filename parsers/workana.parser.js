@@ -1,3 +1,4 @@
+(function () {
 'use strict';
 
 /**
@@ -159,3 +160,5 @@ if (typeof globalThis !== 'undefined') {
   globalThis.parseWorkana = parseWorkana;
   globalThis.WORKANA_SELECTORS = SELECTORS;
 }
+
+})();

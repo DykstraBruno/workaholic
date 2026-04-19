@@ -13,24 +13,31 @@ importScripts(
 const ALARM_NAME = 'fetch-jobs';
 const SCRAPER_TIMEOUT_MS = 30_000;
 const DEFAULT_FETCH_INTERVAL_MINUTES = 1;
+const AUTH_FLOW_KEY = 'authFlow';
+const DIAGNOSTICS_KEY = 'lastFetchDiagnostics';
+
+// Persistent lock keys — survive service worker restarts
+const LOCK_KEY        = 'fetchCycleLock';   // stores timestamp (ms) when lock was acquired
+const LOCK_EXPIRY_MS  = 4 * 60 * 1000;     // 4 min — safely above worst-case cycle duration
 
 const SITE_URLS = {
 	upwork: 'https://www.upwork.com/nx/search/jobs',
 	workana: 'https://www.workana.com/jobs',
 	freelas99: 'https://www.99freelas.com.br/projects',
 	linkedin: 'https://www.linkedin.com/jobs/search',
-	indeed: 'https://br.indeed.com/jobs',
-	gupy: 'https://www.gupy.io/vagas-emprego',
+	indeed: 'https://br.indeed.com/jobs?q=desenvolvedor',
+	gupy: 'https://portal.gupy.io/job-search',
 };
 
-const SCRAPER_PATHS = {
-	upwork: 'scrapers/upwork.js',
-	workana: 'scrapers/workana.js',
-	freelas99: 'scrapers/freelas99.js',
-	linkedin: 'scrapers/linkedin.js',
-	indeed: 'scrapers/indeed.js',
-	gupy: 'scrapers/gupy.js',
-};
+const SUPPORTED_TAB_PATTERNS = [
+	'https://www.upwork.com/*',
+	'https://www.workana.com/*',
+	'https://www.99freelas.com.br/*',
+	'https://www.linkedin.com/*',
+	'https://br.indeed.com/*',
+	'https://www.gupy.io/*',
+	'https://portal.gupy.io/*',
+];
 
 const SITE_LABELS = {
 	upwork: 'Upwork',
@@ -40,6 +47,131 @@ const SITE_LABELS = {
 	indeed: 'Indeed',
 	gupy: 'Gupy',
 };
+
+const PARSER_FILES = {
+	upwork: 'parsers/upwork.parser.js',
+	workana: 'parsers/workana.parser.js',
+	freelas99: 'parsers/freelas99.parser.js',
+	linkedin: 'parsers/linkedin.parser.js',
+	indeed: 'parsers/indeed.parser.js',
+	gupy: 'parsers/gupy.parser.js',
+};
+
+const PARSER_GLOBALS = {
+	upwork: 'parseUpwork',
+	workana: 'parseWorkana',
+	freelas99: 'parseFreelas99',
+	linkedin: 'parseLinkedIn',
+	indeed: 'parseIndeed',
+	gupy: 'parseGupy',
+};
+
+const LOGIN_URL_PATTERNS = {
+	upwork: [/\/login/i, /account-security/i, /signup/i, /__cf_chl_rt_tk/i, /\/cdn-cgi\/challenge-platform/i],
+	workana: [/\/login/i, /\/signin/i, /\/account/i],
+	freelas99: [/\/login/i, /\/entrar/i],
+	linkedin: [/\/login/i, /checkpoint/i, /signup/i],
+	indeed: [/\/account\/login/i, /\/auth/i, /\/signin/i],
+	gupy: [/\/login/i, /\/entrar/i, /\/candidate-login/i, /\/candidates\//i],
+};
+
+const AREA_TO_SEARCH_TERM = {
+	development: 'desenvolvedor',
+	design: 'designer',
+	marketing: 'marketing',
+	writing: 'redator',
+	data: 'dados',
+	mobile: 'desenvolvedor mobile',
+};
+
+function createDefaultProfile() {
+	return {
+		skills: [],
+		area: 'development',
+		minBudget: null,
+		currency: 'BRL',
+		languages: ['pt', 'en'],
+		blacklist: [],
+		sites: Object.fromEntries(Object.keys(SITE_URLS).map((site) => [site, true])),
+		fetchInterval: DEFAULT_FETCH_INTERVAL_MINUTES,
+	};
+}
+
+function getSiteUrl(site) {
+	return new URL(SITE_URLS[site]);
+}
+
+function firstKeyword(profile) {
+	if (!Array.isArray(profile?.keywords)) return '';
+	for (const raw of profile.keywords) {
+		const value = String(raw || '').trim();
+		if (value) return value;
+	}
+	return '';
+}
+
+function getProfileSearchTerm(profile) {
+	const keyword = firstKeyword(profile);
+	if (keyword) return keyword;
+
+	const area = String(profile?.area || '').trim().toLowerCase();
+	return AREA_TO_SEARCH_TERM[area] || area || '';
+}
+
+function buildSiteSearchUrl(site, profile) {
+	const url = new URL(SITE_URLS[site]);
+	const term = getProfileSearchTerm(profile);
+
+	if (!term) return url.toString();
+
+	switch (site) {
+		case 'upwork':
+			url.searchParams.set('q', term);
+			break;
+		case 'workana':
+			url.searchParams.set('query', term);
+			break;
+		case 'freelas99':
+			url.searchParams.set('q', term);
+			break;
+		case 'linkedin':
+			url.searchParams.set('keywords', term);
+			break;
+		case 'indeed':
+			url.searchParams.set('q', term);
+			break;
+		case 'gupy':
+			url.searchParams.set('q', term);
+			break;
+		default:
+			break;
+	}
+
+	return url.toString();
+}
+
+function getSiteLabel(site) {
+	return SITE_LABELS[site] || site;
+}
+
+function isTargetPageUrl(site, rawUrl) {
+	if (!rawUrl) return false;
+
+	try {
+		const current = new URL(rawUrl);
+		const target = getSiteUrl(site);
+		return current.host === target.host && current.pathname.startsWith(target.pathname);
+	} catch {
+		return false;
+	}
+}
+
+function isKnownLoginUrl(site, rawUrl) {
+	if (!rawUrl) return false;
+
+	const patterns = LOGIN_URL_PATTERNS[site] || [];
+	return patterns.some((pattern) => pattern.test(rawUrl));
+}
 
 // ---------------------------------------------------------------------------
 // Low-level storage helper (local)
@@ -63,6 +195,18 @@ function localGet(keys) {
 	});
 }
 
+function getTab(tabId) {
+	return new Promise((resolve, reject) => {
+		chrome.tabs.get(tabId, (tab) => {
+			if (chrome.runtime.lastError) {
+				reject(new Error(chrome.runtime.lastError.message));
+				return;
+			}
+			resolve(tab);
+		});
+	});
+}
+
 // ---------------------------------------------------------------------------
 // Alarm management
 // ---------------------------------------------------------------------------
@@ -80,25 +224,6 @@ function setupAlarm(intervalMinutes) {
 // Tab + script helpers
 // ---------------------------------------------------------------------------
 
-function waitForTabLoad(tabId, timeoutMs) {
-	return new Promise((resolve, reject) => {
-		const timeout = setTimeout(() => {
-			chrome.tabs.onUpdated.removeListener(listener);
-			reject(new Error(`Tab load timeout: ${tabId}`));
-		}, timeoutMs);
-
-		function listener(updatedTabId, changeInfo) {
-			if (updatedTabId === tabId && changeInfo.status === 'complete') {
-				clearTimeout(timeout);
-				chrome.tabs.onUpdated.removeListener(listener);
-				resolve();
-			}
-		}
-
-		chrome.tabs.onUpdated.addListener(listener);
-	});
-}
-
 function createWorkerTab() {
 	return new Promise((resolve, reject) => {
 		chrome.tabs.create({ url: 'about:blank', active: false, pinned: true }, (tab) => {
@@ -111,17 +236,76 @@ function createWorkerTab() {
 	});
 }
 
-function navigateTabAndWaitForLoad(tabId, url) {
+function createInteractiveTab(url) {
 	return new Promise((resolve, reject) => {
-		chrome.tabs.update(tabId, { url }, (tab) => {
+		chrome.tabs.create({ url, active: true }, (tab) => {
 			if (chrome.runtime.lastError) {
 				reject(new Error(chrome.runtime.lastError.message));
 				return;
 			}
+			resolve(tab);
+		});
+	});
+}
 
-			waitForTabLoad(tab.id, SCRAPER_TIMEOUT_MS)
-				.then(resolve)
-				.catch(reject);
+function navigateTabAndWaitForLoad(tabId, url) {
+	return new Promise((resolve, reject) => {
+		let settled = false;
+		let navigationStarted = false;
+
+		const timeout = setTimeout(() => {
+			finish(new Error(`Tab load timeout: ${tabId}`));
+		}, SCRAPER_TIMEOUT_MS);
+
+		function cleanup() {
+			clearTimeout(timeout);
+			chrome.tabs.onUpdated.removeListener(listener);
+		}
+
+		function finish(error) {
+			if (settled) return;
+			settled = true;
+			cleanup();
+			if (error) reject(error);
+			else resolve();
+		}
+
+		function isReady(tab, changeInfo) {
+			const currentUrl = tab?.pendingUrl || tab?.url || '';
+			const isLoaded = changeInfo?.status === 'complete' || tab?.status === 'complete';
+
+			if (!navigationStarted || !isLoaded) return false;
+			if (!currentUrl || currentUrl === 'about:blank') return false;
+
+			return true;
+		}
+
+		function listener(updatedTabId, changeInfo, tab) {
+			if (updatedTabId !== tabId) return;
+
+			if (changeInfo.url || changeInfo.status === 'loading') {
+				navigationStarted = true;
+			}
+
+			if (isReady(tab, changeInfo)) {
+				finish();
+			}
+		}
+
+		// Register before the update to avoid missing very fast loads.
+		chrome.tabs.onUpdated.addListener(listener);
+
+		chrome.tabs.update(tabId, { url }, (tab) => {
+			if (chrome.runtime.lastError) {
+				finish(new Error(chrome.runtime.lastError.message));
+				return;
+			}
+
+			navigationStarted = true;
+
+			if (isReady(tab, { status: tab?.status })) {
+				finish();
+			}
 		});
 	});
 }
@@ -140,7 +324,159 @@ function closeTabQuietly(tabId) {
 	});
 }
 
-function injectScraperAndCollect(tabId, scraperPath) {
+function queryTabs(queryInfo) {
+	return new Promise((resolve, reject) => {
+		chrome.tabs.query(queryInfo, (tabs) => {
+			if (chrome.runtime.lastError) {
+				reject(new Error(chrome.runtime.lastError.message));
+				return;
+			}
+			resolve(tabs);
+		});
+	});
+}
+
+async function reloadSupportedTabs() {
+	let tabs = [];
+
+	try {
+		tabs = await queryTabs({ url: SUPPORTED_TAB_PATTERNS });
+	} catch {
+		return;
+	}
+
+	for (const tab of tabs) {
+		if (!tab?.id) continue;
+		try {
+			chrome.tabs.reload(tab.id);
+		} catch {
+			// Ignore tabs that disappeared during reload.
+		}
+	}
+}
+
+async function getAuthFlow() {
+	const result = await localGet(AUTH_FLOW_KEY);
+	return result[AUTH_FLOW_KEY] ?? null;
+}
+
+async function setAuthFlow(flow) {
+	await localSet({ [AUTH_FLOW_KEY]: flow });
+}
+
+async function clearAuthFlow() {
+	await setAuthFlow(null);
+}
+
+async function getLiveAuthFlow() {
+	const flow = await getAuthFlow();
+	if (!flow?.tabId || !flow?.site) return null;
+
+	try {
+		await getTab(flow.tabId);
+		return flow;
+	} catch {
+		await clearAuthFlow();
+		return null;
+	}
+}
+
+async function pageLooksLikeLogin(tabId) {
+	try {
+		const [{ result }] = await chrome.scripting.executeScript({
+			target: { tabId },
+			func: () => {
+				const text = (document.body?.innerText || '').slice(0, 3000).toLowerCase();
+				const hasPassword = Boolean(
+					document.querySelector('input[type="password"], input[name*="password" i], input[autocomplete="current-password"]')
+				);
+				const loginHints = /(login|log in|sign in|entrar|acessar|senha|password|continue com)/i.test(text);
+				const challengeHints = /(checking your browser|verify you are human|cloudflare|captcha|just a moment)/i.test(text);
+				const challengeDom = Boolean(document.querySelector('#challenge-running, .cf-browser-verification, [data-translate="checking_browser"]'));
+				return (hasPassword && loginHints) || challengeHints || challengeDom;
+			},
+		});
+
+		return Boolean(result);
+	} catch {
+		return false;
+	}
+}
+
+async function siteRequiresLogin(tabId, site) {
+	let tab;
+
+	try {
+		tab = await getTab(tabId);
+	} catch {
+		return false;
+	}
+
+	const currentUrl = tab.pendingUrl || tab.url || '';
+	if (isKnownLoginUrl(site, currentUrl)) return true;
+	if (site === 'upwork' && /__cf_chl_rt_tk|\/cdn-cgi\/challenge-platform/i.test(currentUrl)) return true;
+	if (isTargetPageUrl(site, currentUrl)) return false;
+
+	try {
+		const current = new URL(currentUrl);
+		const target = getSiteUrl(site);
+		if (current.host !== target.host) return false;
+	} catch {
+		return false;
+	}
+
+	return pageLooksLikeLogin(tabId);
+	}
+
+async function ensureAuthTab(site, profile) {
+	const currentFlow = await getLiveAuthFlow();
+	if (currentFlow?.site === site) {
+		return currentFlow;
+	}
+
+	const tab = await createInteractiveTab(buildSiteSearchUrl(site, profile));
+	const flow = {
+		site,
+		tabId: tab.id,
+		startedAt: Date.now(),
+		resumeFetch: true,
+	};
+
+	await setAuthFlow(flow);
+	return flow;
+}
+
+async function ensureScraperBridge(tabId, site) {
+	const parserGlobal = PARSER_GLOBALS[site];
+	const parserFile = PARSER_FILES[site];
+
+	const [{ result }] = await chrome.scripting.executeScript({
+		target: { tabId },
+		func: (globalName) => ({
+			bridgeReady: Boolean(globalThis.__WORKAHOLIC_BRIDGE_READY_V2),
+			parserReady: Boolean(globalThis[globalName]),
+		}),
+		args: [parserGlobal],
+	});
+
+	if (!result?.parserReady) {
+		await chrome.scripting.executeScript({
+			target: { tabId },
+			files: [parserFile],
+		});
+	}
+
+	if (result?.bridgeReady) return;
+
+	await chrome.scripting.executeScript({
+		target: { tabId },
+		files: [
+			'content/scraper-bridge-v2.js',
+		],
+	});
+}
+
+function injectScraperAndCollect(tabId, site) {
 	return new Promise((resolve, reject) => {
 		let settled = false;
 
@@ -155,6 +491,7 @@ function injectScraperAndCollect(tabId, scraperPath) {
 			if (settled) return;
 			if (!sender.tab || sender.tab.id !== tabId) return;
 			if (!message || !Array.isArray(message.jobs)) return;
+			if (message.site !== site) return;
 
 			settled = true;
 			clearTimeout(timeout);
@@ -164,23 +501,21 @@ function injectScraperAndCollect(tabId, scraperPath) {
 
 		chrome.runtime.onMessage.addListener(messageListener);
 
-		chrome.scripting.executeScript(
-			{
-				target: { tabId },
-				files: [
-					`parsers/${scraperPath.split('/').pop().replace('.js', '.parser.js')}`,
-					scraperPath,
-				],
-			},
-			() => {
-				if (chrome.runtime.lastError && !settled) {
-					settled = true;
-					clearTimeout(timeout);
-					chrome.runtime.onMessage.removeListener(messageListener);
-					reject(new Error(chrome.runtime.lastError.message));
-				}
-			},
-		);
+		ensureScraperBridge(tabId, site)
+			.then(() => chrome.tabs.sendMessage(
+				tabId,
+				{
+					type: 'SCRAPE_SITE',
+					site,
+				},
+			))
+			.catch((err) => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timeout);
+				chrome.runtime.onMessage.removeListener(messageListener);
+				reject(new Error(`Failed to inject scraper bridge: ${err.message}`));
+			});
 	});
 }
 
@@ -188,13 +523,16 @@ function injectScraperAndCollect(tabId, scraperPath) {
 // Per-site execution
 // ---------------------------------------------------------------------------
 
-async function scrapeSiteInTab(tabId, site) {
+async function scrapeSiteInTab(tabId, site, profile) {
 	try {
-		await navigateTabAndWaitForLoad(tabId, SITE_URLS[site]);
-		const jobs = await injectScraperAndCollect(tabId, SCRAPER_PATHS[site]);
-		return { site, jobs, failed: false };
+		await navigateTabAndWaitForLoad(tabId, buildSiteSearchUrl(site, profile));
+		if (await siteRequiresLogin(tabId, site)) {
+			return { site, jobs: [], failed: false, loginRequired: true };
+		}
+		const jobs = await injectScraperAndCollect(tabId, site);
+		return { site, jobs, failed: false, loginRequired: false };
 	} catch {
-		return { site, jobs: [], failed: true };
+		return { site, jobs: [], failed: true, loginRequired: false };
 	}
 }
 
@@ -257,12 +595,76 @@ async function updateSiteHealth(site, hasTechnicalFailure, resultsCount) {
 }
 
 // ---------------------------------------------------------------------------
+// Persistent lock + orphaned-tab cleanup
+// ---------------------------------------------------------------------------
+
+async function acquireLock() {
+	const result = await localGet(LOCK_KEY);
+	const lockedAt = result[LOCK_KEY];
+
+	// Lock is valid (held by a live cycle) — reject.
+	if (lockedAt && Date.now() - lockedAt < LOCK_EXPIRY_MS) return false;
+
+	// Lock expired or never set — the previous cycle's SW was killed.
+	// Close any tab it left open before we start a new cycle.
+	const tabResult = await localGet('workerTabId');
+	if (tabResult.workerTabId != null) {
+		await closeTabQuietly(tabResult.workerTabId);
+		await localSet({ workerTabId: null });
+	}
+
+	await localSet({ [LOCK_KEY]: Date.now() });
+	return true;
+}
+
+async function releaseLock() {
+	await localSet({ [LOCK_KEY]: null, workerTabId: null });
+}
+
+function createSiteDiagnostics(enabledSites) {
+	return Object.fromEntries(enabledSites.map((site) => [site, {
+		site,
+		label: getSiteLabel(site),
+		rawJobs: 0,
+		normalizedJobs: 0,
+		matchedJobs: 0,
+		failed: false,
+		loginRequired: false,
+	}]));
+}
+
+async function saveDiagnostics(diagnostics) {
+	await localSet({ [DIAGNOSTICS_KEY]: diagnostics });
+}
+
+// ---------------------------------------------------------------------------
 // Fetch cycle
 // ---------------------------------------------------------------------------
 
 async function runFetchCycle() {
-	const profile = await getProfile();
-	if (!profile) return { ok: true, jobs: [] };
+	const acquired = await acquireLock();
+	if (!acquired) return { ok: false, error: 'already running' };
+
+	let profile = await getProfile();
+	if (!profile) {
+		profile = createDefaultProfile();
+		await saveProfile(profile);
+	}
+
+	const activeAuthFlow = await getLiveAuthFlow();
+	if (activeAuthFlow) {
+		await releaseLock();
+		return {
+			ok: true,
+			jobs: await getJobs(),
+			auth: {
+				required: true,
+				pending: true,
+				site: activeAuthFlow.site,
+				label: getSiteLabel(activeAuthFlow.site),
+			},
+		};
+	}
 
 	const enabledSites = Object.entries(profile.sites || {})
 		.filter(([, enabled]) => enabled)
@@ -272,32 +674,57 @@ async function runFetchCycle() {
 		await saveJobs([]);
 		setBadge(0);
 		await localSet({ lastFetch: new Date().toISOString() });
+		await saveDiagnostics({
+			generatedAt: new Date().toISOString(),
+			enabledSites: [],
+			profile: {
+				skillsCount: profile.skills?.length || 0,
+				blacklistCount: profile.blacklist?.length || 0,
+				minBudget: profile.minBudget ?? null,
+			},
+			totals: { rawJobs: 0, normalizedJobs: 0, matchedJobs: 0 },
+			sites: [],
+		});
+		await releaseLock();
 		return { ok: true, jobs: [] };
 	}
 
+	const siteDiagnostics = createSiteDiagnostics(enabledSites);
 	const perSiteResults = [];
 	let workerTab = null;
 
 	try {
 		workerTab = await createWorkerTab();
+		await localSet({ workerTabId: workerTab.id });
 
 		for (const site of enabledSites) {
-			const result = await scrapeSiteInTab(workerTab.id, site);
+			const result = await scrapeSiteInTab(workerTab.id, site, profile);
 			perSiteResults.push(result);
 		}
 	} finally {
 		if (workerTab && workerTab.id != null) {
 			await closeTabQuietly(workerTab.id);
 		}
+		await releaseLock();
 	}
 
 	const normalized = [];
+	const loginRequiredSites = [];
 	for (const result of perSiteResults) {
 		const rawJobs = Array.isArray(result.jobs) ? result.jobs : [];
+		const diagnostics = siteDiagnostics[result.site];
+		diagnostics.rawJobs = rawJobs.length;
+		diagnostics.failed = Boolean(result.failed);
+		diagnostics.loginRequired = Boolean(result.loginRequired);
+
+		if (result.loginRequired) {
+			loginRequiredSites.push(result.site);
+		}
 
 		for (const raw of rawJobs) {
 			try {
 				normalized.push(normalize(raw, result.site));
+				diagnostics.normalizedJobs++;
 			} catch {
 				// Ignore malformed job payload from a scraper.
 			}
@@ -307,6 +734,27 @@ async function runFetchCycle() {
 	}
 
 	const filtered = filterJobs(normalized, profile);
+	for (const job of filtered) {
+		if (siteDiagnostics[job.site]) {
+			siteDiagnostics[job.site].matchedJobs++;
+		}
+	}
+
+	const diagnostics = {
+		generatedAt: new Date().toISOString(),
+		enabledSites,
+		profile: {
+			skillsCount: profile.skills?.length || 0,
+			blacklistCount: profile.blacklist?.length || 0,
+			minBudget: profile.minBudget ?? null,
+		},
+		totals: {
+			rawJobs: Object.values(siteDiagnostics).reduce((sum, site) => sum + site.rawJobs, 0),
+			normalizedJobs: Object.values(siteDiagnostics).reduce((sum, site) => sum + site.normalizedJobs, 0),
+			matchedJobs: filtered.length,
+		},
+		sites: enabledSites.map((site) => siteDiagnostics[site]),
+	};
 
 	let newJobsCount = 0;
 	for (const job of filtered) {
@@ -322,7 +770,23 @@ async function runFetchCycle() {
 
 	await saveJobs(filtered);
 	await localSet({ lastFetch: new Date().toISOString() });
+	await saveDiagnostics(diagnostics);
 	setBadge(newJobsCount);
+
+	if (loginRequiredSites.length) {
+		const site = loginRequiredSites[0];
+		await ensureAuthTab(site, profile);
+		return {
+			ok: true,
+			jobs: filtered,
+			auth: {
+				required: true,
+				pending: false,
+				site,
+				label: getSiteLabel(site),
+			},
+		};
+	}
 
 	return { ok: true, jobs: filtered };
 }
@@ -332,9 +796,14 @@ async function runFetchCycle() {
 // ---------------------------------------------------------------------------
 
 chrome.runtime.onInstalled.addListener(async () => {
-	const profile = await getProfile();
+	let profile = await getProfile();
+	if (!profile) {
+		profile = createDefaultProfile();
+		await saveProfile(profile);
+	}
 	const interval = profile?.fetchInterval || DEFAULT_FETCH_INTERVAL_MINUTES;
 	setupAlarm(interval);
+	await reloadSupportedTabs();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -352,6 +821,34 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 	if (oldInterval !== newInterval) {
 		setupAlarm(newInterval);
 	}
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+	if (changeInfo.status !== 'complete' && !changeInfo.url) return;
+
+	getLiveAuthFlow()
+		.then(async (flow) => {
+			if (!flow || flow.tabId !== tabId) return;
+
+			const currentUrl = tab?.pendingUrl || tab?.url || '';
+			if (!isTargetPageUrl(flow.site, currentUrl)) return;
+
+			const stillNeedsLogin = await siteRequiresLogin(tabId, flow.site);
+			if (stillNeedsLogin) return;
+
+			await clearAuthFlow();
+			return runFetchCycle();
+		})
+		.catch(() => {});
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+	getAuthFlow()
+		.then((flow) => {
+			if (!flow || flow.tabId !== tabId) return;
+			return clearAuthFlow();
+		})
+		.catch(() => {});
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

@@ -3,6 +3,9 @@
 (function runFreelas99Scraper() {
   const TARGET_PATH = '/projects';
   const TIMEOUT_MS = 10_000;
+  const CARD_SELECTORS = (typeof FREELAS99_SELECTORS !== 'undefined' && Array.isArray(FREELAS99_SELECTORS.card))
+    ? FREELAS99_SELECTORS.card
+    : ['[data-test="project-card"]', '.project-item', '.project'];
 
   function send(jobs) {
     chrome.runtime.sendMessage({ site: 'freelas99', jobs: Array.isArray(jobs) ? jobs : [] });
@@ -15,6 +18,15 @@
     } catch {
       return [];
     }
+  }
+
+  function countCards() {
+    const seen = new Set();
+    for (const selector of CARD_SELECTORS) {
+      const nodes = document.querySelectorAll(selector);
+      for (const node of nodes) seen.add(node);
+    }
+    return seen.size;
   }
 
   function captureAndSend() {
@@ -44,7 +56,7 @@
     };
 
     const observer = new MutationObserver(() => {
-      if (document.body && document.body.innerHTML.length > 0) {
+      if (countCards() >= 1) {
         finish();
       }
     });
@@ -58,10 +70,10 @@
       if (settled) return;
       settled = true;
       observer.disconnect();
-      send([]);
+      captureAndSend();
     }, TIMEOUT_MS);
 
-    if (document.readyState === 'complete' && document.body && document.body.innerHTML.length > 0) {
+    if (document.readyState === 'complete' && countCards() >= 1) {
       finish();
     }
   } catch {

@@ -25,7 +25,10 @@
         <span id="last-fetch" class="last-fetch-text">—</span>
       </div>
 
+      <p id="fetch-status" class="fetch-status" hidden></p>
+
       <div id="health-warnings"></div>
+      <div id="fetch-diagnostics" class="fetch-diagnostics" hidden></div>
 
       <ul id="job-list" class="job-list" aria-live="polite"></ul>
 
@@ -74,6 +77,17 @@
         </div>
       </div>
 
+      <!-- Keywords (positive filter) -->
+      <div class="field-group">
+        <label class="field-label">Palavras-chave / Cargo</label>
+        <div class="input-row">
+          <input id="keywords-input" class="input" type="text" placeholder="ex: desenvolvedor, frontend…" />
+          <button id="add-keywords-btn" class="btn btn--secondary">Adicionar</button>
+        </div>
+        <div id="keywords-tags" class="tags-container" aria-label="Palavras-chave"></div>
+        <p class="field-hint">Usa essas palavras para buscar vagas direto nos sites. Se vazio, usa a Área como termo base.</p>
+      </div>
+
       <!-- Blacklist -->
       <div class="field-group">
         <label class="field-label">Palavras bloqueadas</label>
@@ -82,6 +96,7 @@
           <button id="add-blacklist-btn" class="btn btn--secondary">Adicionar</button>
         </div>
         <div id="blacklist-tags" class="tags-container" aria-label="Palavras bloqueadas"></div>
+        <p class="field-hint">Vagas com essas palavras no título são excluídas.</p>
       </div>
 
       <!-- Sites -->
