@@ -1,3 +1,4 @@
+(function () {
 'use strict';
 
 /**
@@ -206,3 +207,5 @@ if (typeof globalThis !== 'undefined') {
   globalThis.parseLinkedIn = parseLinkedIn;
   globalThis.LINKEDIN_SELECTORS = SELECTORS;
 }
+
+})();

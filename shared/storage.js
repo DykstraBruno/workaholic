@@ -2,6 +2,7 @@
 
 const KEYS = {
   PROFILE:       'profile',
+  PROFILE_LOCAL: 'profile_local_cache',
   SEEN:          'seen_jobs',
   JOBS:          'jobs',
   HEALTH_PREFIX: 'health_',
@@ -57,7 +58,14 @@ function localGet(keys) {
  * @returns {Promise<void>}
  */
 async function saveProfile(profile) {
-  await syncSet({ [KEYS.PROFILE]: profile });
+  // Keep a local mirror so the extension still works when sync is unavailable.
+  await localSet({ [KEYS.PROFILE_LOCAL]: profile });
+
+  try {
+    await syncSet({ [KEYS.PROFILE]: profile });
+  } catch {
+    // Ignore sync failures; local mirror is enough for runtime filtering.
+  }
 }
 
 /**
@@ -65,8 +73,17 @@ async function saveProfile(profile) {
  * @returns {Promise<Object|null>}
  */
 async function getProfile() {
-  const result = await syncGet(KEYS.PROFILE);
-  return result[KEYS.PROFILE] ?? null;
+  try {
+    const result = await syncGet(KEYS.PROFILE);
+    if (result[KEYS.PROFILE]) {
+      return result[KEYS.PROFILE];
+    }
+  } catch {
+    // Fall through to local cache.
+  }
+
+  const local = await localGet(KEYS.PROFILE_LOCAL);
+  return local[KEYS.PROFILE_LOCAL] ?? null;
 }
 
 // ---------------------------------------------------------------------------

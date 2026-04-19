@@ -18,7 +18,8 @@
     "https://www.99freelas.com.br/*",
     "https://www.linkedin.com/*",
     "https://br.indeed.com/*",
-    "https://www.gupy.io/*"
+    "https://www.gupy.io/*",
+    "https://portal.gupy.io/*"
   ],
 
   "background": {
@@ -40,5 +41,20 @@
     "32": "icons/icon128.png",
     "48": "icons/icon128.png",
     "128": "icons/icon128.png"
-  }
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["parsers/*.parser.js"],
+      "matches": [
+        "https://www.upwork.com/*",
+        "https://www.workana.com/*",
+        "https://www.99freelas.com.br/*",
+        "https://www.linkedin.com/*",
+        "https://br.indeed.com/*",
+        "https://www.gupy.io/*",
+        "https://portal.gupy.io/*"
+      ]
+    }
+  ]
 }

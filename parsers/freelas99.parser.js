@@ -1,3 +1,4 @@
+(function () {
 'use strict';
 
 /**
@@ -9,8 +10,12 @@ const SELECTORS = {
     '[data-test="project-card"]',
     '.project-item',
     '.project',
+    'main li',
+    'ul li',
   ],
   title: [
+    'h1 a[href*="/project/"]',
+    'h1 a',
     'h2 a',
     '[data-test="project-title"] a',
     'h3 a',
@@ -130,8 +135,11 @@ function parseFreelas99(html) {
       const skills = parseSkills(card);
       const budgetText = firstText(card, SELECTORS.budget);
       const budget = parseBudget(budgetText);
-      const href = firstAttr(card, SELECTORS.title, 'href');
+      const href = firstAttr(card, [...SELECTORS.title, 'a[href*="/project/"]'], 'href');
       const url = toAbsoluteUrl(href, 'https://www.99freelas.com.br');
+
+      // Ignore unrelated list items (pagination, side widgets, etc.).
+      if (!url.includes('/project/')) return null;
 
       const postedAttr = firstAttr(card, SELECTORS.postedAt, 'datetime');
       const postedText = postedAttr || firstText(card, SELECTORS.postedAt);
@@ -144,7 +152,7 @@ function parseFreelas99(html) {
         url: url || '',
         postedAt: postedText || '',
       };
-    });
+    }).filter(Boolean);
   } catch {
     return [];
   }
@@ -158,3 +166,5 @@ if (typeof globalThis !== 'undefined') {
   globalThis.parseFreelas99 = parseFreelas99;
   globalThis.FREELAS99_SELECTORS = SELECTORS;
 }
+
+})();

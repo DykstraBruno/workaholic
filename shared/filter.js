@@ -17,6 +17,48 @@ const SYNONYMS = {
   docker:     ['docker', 'dockerfile'],
 };
 
+const MIN_MATCH_SCORE = 30;
+const MIN_MATCHED_SKILLS = 3;
+
+function normalizeForTextMatch(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function minScoreForProfileSize(size) {
+  if (size >= 10) return 5;
+  if (size >= 6) return 15;
+  return MIN_MATCH_SCORE;
+}
+
+function minMatchedSkillsForProfileSize(size) {
+  if (size >= 15) return 3;
+  if (size >= 8) return 2;
+  return 1;
+}
+
+function countMatches(jobOrSkills, profileSkills) {
+  if (!profileSkills || profileSkills.length === 0) return 0;
+
+  const profileSet = canonicalSet(profileSkills);
+  const jobSkills = Array.isArray(jobOrSkills) ? jobOrSkills : jobOrSkills?.skills;
+  const jobSet = canonicalSet(jobSkills);
+  const fallbackText = Array.isArray(jobOrSkills)
+    ? ''
+    : `${jobOrSkills?.title || ''} ${jobOrSkills?.description || ''}`;
+
+  let matches = 0;
+  for (const skill of profileSet) {
+    if (jobSet.has(skill) || textMentionsSkill(fallbackText, skill)) {
+      matches++;
+    }
+  }
+
+  return matches;
+}
+
 // Reverse lookup: alias → canonical form
 const ALIAS_TO_CANONICAL = {};
 for (const [canonical, aliases] of Object.entries(SYNONYMS)) {
@@ -32,7 +74,7 @@ for (const [canonical, aliases] of Object.entries(SYNONYMS)) {
  * @returns {string}
  */
 function canonicalize(skill) {
-  const lower = skill.toLowerCase().trim();
+  const lower = normalizeForTextMatch(skill).trim();
   return ALIAS_TO_CANONICAL[lower] ?? lower;
 }
 
@@ -42,28 +84,43 @@ function canonicalize(skill) {
  * @returns {Set<string>}
  */
 function canonicalSet(skills) {
-  return new Set((skills || []).map(canonicalize));
+  return new Set((skills || []).map(canonicalize).filter(Boolean));
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function aliasesFor(skill) {
+  const canonical = canonicalize(skill);
+  if (!canonical) return [];
+  const aliases = SYNONYMS[canonical] ?? [canonical];
+  return Array.from(new Set([canonical, ...aliases.map((alias) => normalizeForTextMatch(alias).trim())]));
+}
+
+function textMentionsSkill(text, skill) {
+  const haystack = normalizeForTextMatch(text);
+  if (!haystack) return false;
+
+  return aliasesFor(skill).some((alias) => {
+    const pattern = new RegExp(`(^|[^a-z0-9+#])${escapeRegExp(alias)}($|[^a-z0-9+#])`, 'i');
+    return pattern.test(haystack);
+  });
 }
 
 /**
  * Calculates the match score between a job and a profile.
  * Score = (skills in common / total profile skills) * 100
  * Returns 0 when the profile has no skills.
- * @param {string[]} jobSkills
+ * Falls back to title/description text matching when structured skills are sparse.
+ * @param {Object|string[]} jobOrSkills
  * @param {string[]} profileSkills
  * @returns {number}
  */
-function calcScore(jobSkills, profileSkills) {
+function calcScore(jobOrSkills, profileSkills) {
   if (!profileSkills || profileSkills.length === 0) return 0;
-
   const profileSet = canonicalSet(profileSkills);
-  const jobSet = canonicalSet(jobSkills);
-
-  let matches = 0;
-  for (const skill of profileSet) {
-    if (jobSet.has(skill)) matches++;
-  }
-
+  const matches = countMatches(jobOrSkills, profileSkills);
   return (matches / profileSet.size) * 100;
 }
 
@@ -75,7 +132,7 @@ function calcScore(jobSkills, profileSkills) {
  *   2. Discard jobs whose title contains a blacklisted word
  *   3. Discard jobs where budget.max < profile.minBudget (when both defined)
  *   4. Calculate score: (matching skills / total profile skills) * 100
- *   5. Discard jobs with score < 40
+ *   5. Discard jobs with score < MIN_MATCH_SCORE (currently 30)
  *   6. Sort by score descending
  *
  * @param {Object[]} jobs     - Array of normalised job objects
@@ -87,11 +144,16 @@ function filterJobs(jobs, profile) {
     skills: profileSkills = [],
     minBudget = null,
     blacklist = [],
+    keywords = [],
     sites = {},
   } = profile;
 
-  // Pre-compute lowercased blacklist for fast comparison
-  const blacklistLower = blacklist.map((w) => w.toLowerCase());
+  // Pre-compute lowercased blacklist and keywords for fast comparison
+  const blacklistLower = blacklist.map((w) => normalizeForTextMatch(w).trim()).filter(Boolean);
+  const keywordsLower  = keywords.map((w) => normalizeForTextMatch(w).trim()).filter(Boolean);
+  const profileSize = canonicalSet(profileSkills).size;
+  const minScore = minScoreForProfileSize(profileSize);
+  const minMatches = Math.min(MIN_MATCHED_SKILLS, minMatchedSkillsForProfileSize(profileSize));
 
   const results = [];
 
@@ -100,19 +162,25 @@ function filterJobs(jobs, profile) {
     if (sites[job.site] === false) continue;
 
     // 2. Blacklist check against title
-    const titleLower = (job.title || '').toLowerCase();
+    const titleLower = normalizeForTextMatch(job.title || '');
     if (blacklistLower.some((word) => titleLower.includes(word))) continue;
 
-    // 3. Budget minimum
+    // 3. Keywords (positive filter) — skip if no keyword matches title/description
+    const searchableText = `${job.title || ''} ${job.description || ''}`;
+    const searchableLower = normalizeForTextMatch(searchableText);
+    if (keywordsLower.length > 0 && !keywordsLower.some((kw) => searchableLower.includes(kw))) continue;
+
+    // 4. Budget minimum
     if (
       minBudget != null &&
       job.budget != null &&
       job.budget.max < minBudget
     ) continue;
 
-    // 4 & 5. Score — discard if below threshold
-    const score = calcScore(job.skills, profileSkills);
-    if (score < 40) continue;
+    // 4 & 5. Score / absolute matches — discard if both are below threshold.
+    const matches = countMatches(job, profileSkills);
+    const score = calcScore(job, profileSkills);
+    if (matches < minMatches && score < minScore) continue;
 
     results.push({ ...job, score });
   }
@@ -124,10 +192,23 @@ function filterJobs(jobs, profile) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { filterJobs, SYNONYMS };
+  module.exports = {
+    filterJobs,
+    SYNONYMS,
+    MIN_MATCH_SCORE,
+    MIN_MATCHED_SKILLS,
+    minScoreForProfileSize,
+    minMatchedSkillsForProfileSize,
+    countMatches,
+  };
 }
 
 if (typeof globalThis !== 'undefined') {
   globalThis.filterJobs = filterJobs;
   globalThis.SYNONYMS = SYNONYMS;
+  globalThis.MIN_MATCH_SCORE = MIN_MATCH_SCORE;
+  globalThis.MIN_MATCHED_SKILLS = MIN_MATCHED_SKILLS;
+  globalThis.minScoreForProfileSize = minScoreForProfileSize;
+  globalThis.minMatchedSkillsForProfileSize = minMatchedSkillsForProfileSize;
+  globalThis.countMatches = countMatches;
 }

@@ -3,6 +3,9 @@
 (function runUpworkScraper() {
   const TARGET_PATH = '/nx/search/jobs';
   const TIMEOUT_MS = 10_000;
+  const CARD_SELECTORS = (typeof UPWORK_SELECTORS !== 'undefined' && Array.isArray(UPWORK_SELECTORS.card))
+    ? UPWORK_SELECTORS.card
+    : ['[data-test="JobTile"]', '.job-tile', '.up-card-section'];
 
   function send(jobs) {
     chrome.runtime.sendMessage({ site: 'upwork', jobs: Array.isArray(jobs) ? jobs : [] });
@@ -15,6 +18,15 @@
     } catch {
       return [];
     }
+  }
+
+  function countCards() {
+    const seen = new Set();
+    for (const selector of CARD_SELECTORS) {
+      const nodes = document.querySelectorAll(selector);
+      for (const node of nodes) seen.add(node);
+    }
+    return seen.size;
   }
 
   function captureAndSend() {
@@ -44,7 +56,7 @@
     };
 
     const observer = new MutationObserver(() => {
-      if (document.body && document.body.innerHTML.length > 0) {
+      if (countCards() >= 1) {
         finish();
       }
     });
@@ -58,10 +70,10 @@
       if (settled) return;
       settled = true;
       observer.disconnect();
-      send([]);
+      captureAndSend();
     }, TIMEOUT_MS);
 
-    if (document.readyState === 'complete' && document.body && document.body.innerHTML.length > 0) {
+    if (document.readyState === 'complete' && countCards() >= 1) {
       finish();
     }
   } catch {

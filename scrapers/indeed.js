@@ -3,6 +3,9 @@
 (function runIndeedScraper() {
   const TARGET_PATH = '/jobs';
   const TIMEOUT_MS = 10_000;
+  const CARD_SELECTORS = (typeof INDEED_SELECTORS !== 'undefined' && Array.isArray(INDEED_SELECTORS.card))
+    ? INDEED_SELECTORS.card
+    : ['[data-testid="jobsearch-SerpJobCard"]', '.job_seen_beacon', '.result'];
 
   function send(jobs) {
     chrome.runtime.sendMessage({ site: 'indeed', jobs: Array.isArray(jobs) ? jobs : [] });
@@ -15,6 +18,14 @@
     } catch {
       return [];
     }
+  }
+
+  function hasJobsSignal() {
+    for (const selector of CARD_SELECTORS) {
+      if (document.querySelector(selector)) return true;
+    }
+
+    return document.querySelectorAll('script[type="application/ld+json"]').length > 0;
   }
 
   function captureAndSend() {
@@ -44,7 +55,7 @@
     };
 
     const observer = new MutationObserver(() => {
-      if (document.body && document.body.innerHTML.length > 0) {
+      if (hasJobsSignal()) {
         finish();
       }
     });
@@ -58,10 +69,10 @@
       if (settled) return;
       settled = true;
       observer.disconnect();
-      send([]);
+      captureAndSend();
     }, TIMEOUT_MS);
 
-    if (document.readyState === 'complete' && document.body && document.body.innerHTML.length > 0) {
+    if (document.readyState === 'complete' && hasJobsSignal()) {
       finish();
     }
   } catch {

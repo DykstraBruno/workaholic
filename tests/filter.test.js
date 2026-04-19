@@ -68,13 +68,72 @@ describe('filterJobs — score 50', () => {
   });
 });
 
-describe('filterJobs — score below 40', () => {
-  test('job with score < 40 is discarded', () => {
-    // Profile has 3 skills, job matches 1 → ~33%
+describe('filterJobs — score below threshold', () => {
+  test('job with low score and insufficient absolute matches is discarded', () => {
+    // Profile has 8 skills, job matches 1 → 12.5%, needs at least 2 matches.
     const jobs = [makeJob({ skills: ['react'] })];
-    const profile = makeProfile({ skills: ['react', 'typescript', 'node'] });
+    const profile = makeProfile({
+      skills: ['react', 'typescript', 'node', 'docker', 'postgres', 'mongo', 'aws', 'jest'],
+    });
     const result = filterJobs(jobs, profile);
     expect(result).toHaveLength(0);
+  });
+
+  test('job with 3 matched skills is accepted even with low percentage on large profile', () => {
+    const jobs = [makeJob({
+      title: 'Backend role',
+      description: 'Stack: React, Node.js, TypeScript.',
+      skills: [],
+    })];
+    const profile = makeProfile({
+      skills: [
+        'react', 'node', 'typescript', 'python', 'docker', 'postgres', 'mongo', 'vue',
+        'angular', 'javascript', 'redis', 'aws', 'gcp', 'kubernetes', 'graphql', 'jest'
+      ],
+    });
+
+    const result = filterJobs(jobs, profile);
+    expect(result).toHaveLength(1);
+    expect(result[0].score).toBeGreaterThan(0);
+  });
+
+  test('job with 1 matched skill is accepted for small profile', () => {
+    const jobs = [makeJob({
+      title: 'React Developer',
+      description: 'Projeto em React',
+      skills: [],
+    })];
+    const profile = makeProfile({ skills: ['react', 'node', 'typescript', 'docker', 'aws'] });
+    const result = filterJobs(jobs, profile);
+    expect(result).toHaveLength(1);
+  });
+});
+
+describe('filterJobs — text fallback matching', () => {
+  test('matches profile skills found in title and description when skills array is empty', () => {
+    const jobs = [makeJob({
+      title: 'Senior React Engineer',
+      description: 'Build internal tools with Node.js for analytics teams.',
+      skills: [],
+    })];
+    const profile = makeProfile({ skills: ['react', 'node'] });
+    const result = filterJobs(jobs, profile);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].score).toBe(100);
+  });
+
+  test('uses synonym matching inside description text', () => {
+    const jobs = [makeJob({
+      title: 'Frontend Developer',
+      description: 'Work daily with ReactJS and modern TS tooling.',
+      skills: [],
+    })];
+    const profile = makeProfile({ skills: ['react', 'typescript'] });
+    const result = filterJobs(jobs, profile);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].score).toBe(100);
   });
 });
 
@@ -102,6 +161,57 @@ describe('filterJobs — blacklist', () => {
     const profile = makeProfile({ blacklist: ['urgent', 'unpaid'] });
     const result = filterJobs(jobs, profile);
     expect(result).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Keywords (positive filter)
+// ---------------------------------------------------------------------------
+
+describe('filterJobs — keywords', () => {
+  test('job whose title contains a keyword is kept', () => {
+    const jobs = [makeJob({ title: 'Frontend Developer React' })];
+    const profile = makeProfile({ keywords: ['frontend'] });
+    const result = filterJobs(jobs, profile);
+    expect(result).toHaveLength(1);
+  });
+
+  test('job whose description contains a keyword is kept', () => {
+    const jobs = [makeJob({
+      title: 'React role',
+      description: 'Atuacao como desenvolvedor backend com Node.js.',
+    })];
+    const profile = makeProfile({ keywords: ['backend'] });
+    const result = filterJobs(jobs, profile);
+    expect(result).toHaveLength(1);
+  });
+
+  test('job whose title contains none of the keywords is discarded', () => {
+    const jobs = [makeJob({ title: 'Data Analyst SQL' })];
+    const profile = makeProfile({ keywords: ['frontend', 'developer'] });
+    const result = filterJobs(jobs, profile);
+    expect(result).toHaveLength(0);
+  });
+
+  test('keyword check is case-insensitive', () => {
+    const jobs = [makeJob({ title: 'FRONTEND DEVELOPER' })];
+    const profile = makeProfile({ keywords: ['frontend'] });
+    const result = filterJobs(jobs, profile);
+    expect(result).toHaveLength(1);
+  });
+
+  test('keyword check is accent-insensitive', () => {
+    const jobs = [makeJob({ title: 'Desenvolvedor de Aplicacoes' })];
+    const profile = makeProfile({ keywords: ['aplicações'] });
+    const result = filterJobs(jobs, profile);
+    expect(result).toHaveLength(1);
+  });
+
+  test('empty keywords list keeps all jobs (no filter applied)', () => {
+    const jobs = [makeJob({ title: 'Data Analyst' }), makeJob({ title: 'React Developer' })];
+    const profile = makeProfile({ keywords: [] });
+    const result = filterJobs(jobs, profile);
+    expect(result).toHaveLength(2);
   });
 });
 

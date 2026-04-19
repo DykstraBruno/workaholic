@@ -1,3 +1,4 @@
+(function () {
 'use strict';
 
 /**
@@ -303,3 +304,5 @@ if (typeof globalThis !== 'undefined') {
   globalThis.parseIndeed = parseIndeed;
   globalThis.INDEED_SELECTORS = SELECTORS;
 }
+
+})();
