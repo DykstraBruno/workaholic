@@ -122,7 +122,12 @@ function buildSiteSearchUrl(site, profile) {
 	const url = new URL(SITE_URLS[site]);
 	const term = getProfileSearchTerm(profile);
 
-	if (!term) return url.toString();
+	if (!term) {
+		if (site === 'gupy') {
+			url.pathname = '/job-search/sortBy=publishedDate';
+		}
+		return url.toString();
+	}
 
 	switch (site) {
 		case 'upwork':
@@ -141,7 +146,7 @@ function buildSiteSearchUrl(site, profile) {
 			url.searchParams.set('q', term);
 			break;
 		case 'gupy':
-			url.searchParams.set('q', term);
+			url.pathname = `/job-search/term=${encodeURIComponent(term)}`;
 			break;
 		default:
 			break;
