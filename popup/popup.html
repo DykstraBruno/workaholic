@@ -178,9 +178,9 @@
         <div class="ats-actions">
           <button id="ats-analyze-btn" class="btn btn--primary btn--full">Analisar</button>
           <p id="ats-docx-note" class="ats-docx-note" hidden>
-            DOCX: o arquivo original será baixado sem alterações. Adicione manualmente as palavras-chave destacadas acima na seção de habilidades.
+            DOCX: o resultado sera exportado em PDF com layout simplificado. Para preservar layout original, use um PDF de entrada.
           </p>
-          <button id="ats-download-btn" class="btn btn--secondary btn--full" hidden>Baixar currículo otimizado</button>
+          <button id="ats-download-btn" class="btn btn--secondary btn--full" hidden>Baixar currículo otimizado (PDF)</button>
         </div>
       </div>
 
@@ -189,6 +189,8 @@
 
   <script src="../shared/fetch-guard.js"></script>
   <script src="../libs/pdf.min.js"></script>
+  <script src="../libs/pdf-lib.min.js"></script>
+  <script src="../libs/jspdf.umd.min.js"></script>
   <script src="../libs/mammoth.browser.min.js"></script>
   <script src="../shared/filter.js"></script>
   <script src="../shared/requirements-extractor.js"></script>

@@ -4,148 +4,6 @@ Workaholic is a Chrome extension that monitors job and freelance platforms, appl
 
 ---
 
-## PT-BR
-
-### Funcionalidades
-
-- Busca vagas em varias plataformas.
-- Aplica filtros por perfil: habilidades, palavras-chave/cargo, palavras bloqueadas, orcamento minimo e plataformas ativas.
-- Calcula score de aderencia com base nas habilidades exigidas pela vaga.
-- Enriquece vagas com pouco metadado extraindo habilidades de titulo e descricao.
-- Remove duplicatas de vagas repetidas no mesmo ciclo.
-- Notifica somente vagas novas que passaram no filtro.
-- Executa buscas automaticas em background no intervalo configurado.
-
-### Plataformas Suportadas
-
-- Upwork
-- Workana
-- 99Freelas
-- LinkedIn
-- Indeed (BR)
-- Gupy
-
-### Instalacao no Chrome (Modo Desenvolvedor)
-
-1. Baixe ou clone este projeto.
-2. Abra o Chrome em `chrome://extensions`.
-3. Ative `Modo do desenvolvedor`.
-4. Clique em `Carregar sem compactacao`.
-5. Selecione a pasta raiz do projeto.
-
-### Configuracao Inicial
-
-1. Clique no icone da extensao no Chrome.
-2. Abra a aba `Perfil`.
-3. Cadastre suas habilidades.
-4. Selecione sua area principal.
-5. Defina orcamento minimo e moeda (opcional).
-6. Adicione palavras-chave/cargo para busca mais assertiva (opcional).
-7. Adicione palavras bloqueadas para excluir titulos indesejados (opcional).
-8. Marque as plataformas que deseja monitorar.
-9. Ajuste a frequencia de busca.
-10. Clique em `Salvar`.
-
-### Como Funciona o Match
-
-- As vagas sao normalizadas para um formato unico.
-- O score principal usa a visao da vaga:
-  `(habilidades suas que batem com a vaga / total de habilidades exigidas pela vaga) * 100`.
-- Quando a vaga nao traz habilidades estruturadas, o sistema tenta inferir habilidades pela descricao e titulo.
-- Para vagas enriquecidas e esparsas, o score usa uma regra conservadora para evitar inflacao artificial.
-- O filtro final considera combinacao de score minimo dinamico e quantidade minima de matches.
-
-### Fluxo de Filtragem
-
-1. Valida se a plataforma esta habilitada.
-2. Remove vagas com palavras bloqueadas no titulo.
-3. Aplica filtro de palavras-chave/cargo (quando configurado).
-4. Aplica orcamento minimo (quando houver valor de vaga).
-5. Calcula matches e score.
-6. Remove vagas abaixo dos limiares minimos.
-7. Deduplica resultados repetidos.
-8. Ordena por score (maior para menor).
-
-### Curriculo Inteligente (Aba Curriculo)
-
-- Importa PDF ou DOCX.
-- Extrai habilidades de forma controlada para evitar ruido.
-- Usa catalogo de termos e sinonimos para reduzir falsos positivos.
-- Permite analisar uma vaga e sugerir ajustes de palavras-chave para o curriculo.
-
-### Screenshots
-
-As imagens abaixo correspondem aos 3 screenshots enviados (Vagas, Perfil e Curriculo). Coloque os arquivos em docs/screenshots/ com os nomes abaixo para exibicao automatica no README.
-
-#### 1) Aba Vagas - disparo manual de busca
-
-![Aba Vagas: botao Buscar agora e status da ultima busca](docs/screenshots/01-vagas.png)
-
-Legenda: tela principal para iniciar uma varredura imediata.
-Como funciona: ao clicar em `Buscar agora`, a extensao coleta vagas nas plataformas habilitadas, aplica filtros e atualiza o total encontrado.
-
-#### 2) Aba Perfil - configuracao dos filtros
-
-![Aba Perfil: habilidades, area, orcamento, palavras-chave, bloqueios e plataformas](docs/screenshots/02-perfil.png)
-
-Legenda: painel de personalizacao de criterios de busca.
-Como funciona: voce define o que deseja encontrar e o que deve ser ignorado. Esses dados alimentam o calculo de match e o filtro das vagas.
-
-#### 3) Aba Curriculo - importacao e otimizacao
-
-![Aba Curriculo: importacao de arquivo e analise antes/depois](docs/screenshots/03-curriculo.png)
-
-Legenda: modulo de importacao de curriculo e analise de aderencia.
-Como funciona: apos importar o curriculo, selecione uma vaga para comparar `Antes` e `Depois`, visualizar `Match de skills da vaga` e baixar uma versao otimizada.
-
-### Notificacoes
-
-- Apenas vagas novas e aprovadas no filtro geram notificacao.
-- O badge da extensao mostra a quantidade de novas vagas no ultimo ciclo.
-
-### Solucao de Problemas
-
-#### Nao atualiza vagas
-
-1. Abra `chrome://extensions`.
-2. Clique em `Recarregar` na extensao Workaholic.
-3. Volte ao popup e clique em `Buscar agora`.
-
-#### Erro de service worker
-
-Recarregue a extensao em `chrome://extensions`. Se persistir, abra `Erros` e verifique o stack trace mais recente.
-
-#### Poucas vagas com match
-
-- Revise suas habilidades no perfil.
-- Reduza restricoes em palavras-chave/cargo e palavras bloqueadas.
-- Confirme se as plataformas desejadas estao ativas.
-- Execute uma nova busca manual para validar o ajuste.
-
-### Privacidade
-
-- O filtro e o processamento sao locais.
-- Nao ha backend externo obrigatorio para logica de matching.
-- Perfil e estado das vagas ficam no storage da extensao Chrome.
-
-### Desenvolvimento
-
-- Executar testes: `npm test`
-- Cobertura de testes: `npm run test:coverage`
-- Pastas principais:
-  - `background/` orquestracao e agendamento
-  - `popup/` interface da extensao
-  - `parsers/` parsers HTML por plataforma
-  - `scrapers/` content scripts por plataforma
-  - `shared/` normalizacao, filtro e storage
-  - `tests/` testes automatizados e fixtures
-
-### Licenca
-
-MIT
-
----
-
 ## English
 
 ### Features
@@ -283,5 +141,147 @@ Reload the extension in `chrome://extensions`. If it persists, open `Errors` and
   - `tests/` automated tests and fixtures
 
 ### License
+
+MIT
+
+---
+
+## PT-BR
+
+### Funcionalidades
+
+- Busca vagas em varias plataformas.
+- Aplica filtros por perfil: habilidades, palavras-chave/cargo, palavras bloqueadas, orcamento minimo e plataformas ativas.
+- Calcula score de aderencia com base nas habilidades exigidas pela vaga.
+- Enriquece vagas com pouco metadado extraindo habilidades de titulo e descricao.
+- Remove duplicatas de vagas repetidas no mesmo ciclo.
+- Notifica somente vagas novas que passaram no filtro.
+- Executa buscas automaticas em background no intervalo configurado.
+
+### Plataformas Suportadas
+
+- Upwork
+- Workana
+- 99Freelas
+- LinkedIn
+- Indeed (BR)
+- Gupy
+
+### Instalacao no Chrome (Modo Desenvolvedor)
+
+1. Baixe ou clone este projeto.
+2. Abra o Chrome em `chrome://extensions`.
+3. Ative `Modo do desenvolvedor`.
+4. Clique em `Carregar sem compactacao`.
+5. Selecione a pasta raiz do projeto.
+
+### Configuracao Inicial
+
+1. Clique no icone da extensao no Chrome.
+2. Abra a aba `Perfil`.
+3. Cadastre suas habilidades.
+4. Selecione sua area principal.
+5. Defina orcamento minimo e moeda (opcional).
+6. Adicione palavras-chave/cargo para busca mais assertiva (opcional).
+7. Adicione palavras bloqueadas para excluir titulos indesejados (opcional).
+8. Marque as plataformas que deseja monitorar.
+9. Ajuste a frequencia de busca.
+10. Clique em `Salvar`.
+
+### Como Funciona o Match
+
+- As vagas sao normalizadas para um formato unico.
+- O score principal usa a visao da vaga:
+  `(habilidades suas que batem com a vaga / total de habilidades exigidas pela vaga) * 100`.
+- Quando a vaga nao traz habilidades estruturadas, o sistema tenta inferir habilidades pela descricao e titulo.
+- Para vagas enriquecidas e esparsas, o score usa uma regra conservadora para evitar inflacao artificial.
+- O filtro final considera combinacao de score minimo dinamico e quantidade minima de matches.
+
+### Fluxo de Filtragem
+
+1. Valida se a plataforma esta habilitada.
+2. Remove vagas com palavras bloqueadas no titulo.
+3. Aplica filtro de palavras-chave/cargo (quando configurado).
+4. Aplica orcamento minimo (quando houver valor de vaga).
+5. Calcula matches e score.
+6. Remove vagas abaixo dos limiares minimos.
+7. Deduplica resultados repetidos.
+8. Ordena por score (maior para menor).
+
+### Curriculo Inteligente (Aba Curriculo)
+
+- Importa PDF ou DOCX.
+- Extrai habilidades de forma controlada para evitar ruido.
+- Usa catalogo de termos e sinonimos para reduzir falsos positivos.
+- Permite analisar uma vaga e sugerir ajustes de palavras-chave para o curriculo.
+
+### Screenshots
+
+As imagens abaixo correspondem aos 3 screenshots enviados (Vagas, Perfil e Curriculo). Coloque os arquivos em docs/screenshots/ com os nomes abaixo para exibicao automatica no README.
+
+#### 1) Aba Vagas - disparo manual de busca
+
+![Aba Vagas: botao Buscar agora e status da ultima busca](docs/screenshots/01-vagas.png)
+
+Legenda: tela principal para iniciar uma varredura imediata.
+Como funciona: ao clicar em `Buscar agora`, a extensao coleta vagas nas plataformas habilitadas, aplica filtros e atualiza o total encontrado.
+
+#### 2) Aba Perfil - configuracao dos filtros
+
+![Aba Perfil: habilidades, area, orcamento, palavras-chave, bloqueios e plataformas](docs/screenshots/02-perfil.png)
+
+Legenda: painel de personalizacao de criterios de busca.
+Como funciona: voce define o que deseja encontrar e o que deve ser ignorado. Esses dados alimentam o calculo de match e o filtro das vagas.
+
+#### 3) Aba Curriculo - importacao e otimizacao
+
+![Aba Curriculo: importacao de arquivo e analise antes/depois](docs/screenshots/03-curriculo.png)
+
+Legenda: modulo de importacao de curriculo e analise de aderencia.
+Como funciona: apos importar o curriculo, selecione uma vaga para comparar `Antes` e `Depois`, visualizar `Match de skills da vaga` e baixar uma versao otimizada.
+
+### Notificacoes
+
+- Apenas vagas novas e aprovadas no filtro geram notificacao.
+- O badge da extensao mostra a quantidade de novas vagas no ultimo ciclo.
+
+### Solucao de Problemas
+
+#### Nao atualiza vagas
+
+1. Abra `chrome://extensions`.
+2. Clique em `Recarregar` na extensao Workaholic.
+3. Volte ao popup e clique em `Buscar agora`.
+
+#### Erro de service worker
+
+Recarregue a extensao em `chrome://extensions`. Se persistir, abra `Erros` e verifique o stack trace mais recente.
+
+#### Poucas vagas com match
+
+- Revise suas habilidades no perfil.
+- Reduza restricoes em palavras-chave/cargo e palavras bloqueadas.
+- Confirme se as plataformas desejadas estao ativas.
+- Execute uma nova busca manual para validar o ajuste.
+
+### Privacidade
+
+- O filtro e o processamento sao locais.
+- Nao ha backend externo obrigatorio para logica de matching.
+- Perfil e estado das vagas ficam no storage da extensao Chrome.
+
+### Desenvolvimento
+
+- Executar testes: `npm test`
+- Cobertura de testes: `npm run test:coverage`
+- Pastas principais:
+  - `background/` orquestracao e agendamento
+  - `popup/` interface da extensao
+  - `parsers/` parsers HTML por plataforma
+  - `scrapers/` content scripts por plataforma
+  - `shared/` normalizacao, filtro e storage
+  - `tests/` testes automatizados e fixtures
+
+### Licenca
 
 MIT

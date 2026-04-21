@@ -68,30 +68,9 @@ function syncSet(data) {
   });
 }
 
-async function saveProfileWithFallback(profile) {
-  await localSet({ [KEYS.PROFILE_LOCAL]: profile });
-  try {
-    await syncSet({ [KEYS.PROFILE]: profile });
-  } catch {
-    // Keep local profile; background also falls back to local cache.
-  }
-}
-
-async function getProfileWithFallback() {
-  try {
-    const syncResult = await syncGet(KEYS.PROFILE);
-    if (syncResult[KEYS.PROFILE]) return syncResult[KEYS.PROFILE];
-  } catch {
-    // Fall through to local cache.
-  }
-
-  const localResult = await localGet(KEYS.PROFILE_LOCAL);
-  return localResult[KEYS.PROFILE_LOCAL] ?? null;
-}
-
-function sendRuntimeMessage(message) {
+function sendRuntimeMessage(payload) {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(message, (response) => {
+    chrome.runtime.sendMessage(payload, (response) => {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
         return;
@@ -99,6 +78,31 @@ function sendRuntimeMessage(message) {
       resolve(response);
     });
   });
+}
+
+async function saveProfileWithFallback(profile) {
+  await localSet({ [KEYS.PROFILE_LOCAL]: profile });
+  try {
+    await syncSet({ [KEYS.PROFILE]: profile });
+  } catch {
+    // Sync pode falhar por limite/permissao; mantemos cache local.
+  }
+}
+
+async function getProfileWithFallback() {
+  try {
+    const syncResult = await syncGet(KEYS.PROFILE);
+    const syncProfile = syncResult?.[KEYS.PROFILE] ?? null;
+    if (syncProfile) {
+      await localSet({ [KEYS.PROFILE_LOCAL]: syncProfile });
+      return syncProfile;
+    }
+  } catch {
+    // Falha de sync: segue com cache local.
+  }
+
+  const localResult = await localGet(KEYS.PROFILE_LOCAL);
+  return localResult?.[KEYS.PROFILE_LOCAL] ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -230,6 +234,16 @@ function isResumeSkillCandidate(raw) {
 function extractSkillsFromResumeText(text) {
   if (!text) return [];
 
+  const sectionText = extractResumeSkillsSectionText(text);
+  const fromSection = extractSkillsFromTextChunk(sectionText);
+  if (fromSection.length) return fromSection;
+
+  return extractSkillsFromTextChunk(text);
+}
+
+function extractSkillsFromTextChunk(text) {
+  if (!text) return [];
+
   const normalizedText = normalizeResumeSkillToken(text);
   const found = new Set();
 
@@ -251,6 +265,303 @@ function extractSkillsFromResumeText(text) {
   }
 
   return normalizeSkills(Array.from(found));
+}
+
+function splitResumeLines(text) {
+  return String(text || '')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim());
+}
+
+function findResumeSkillsSection(lines) {
+  const headingRe = /^(?:\d+[.)-]\s*)?(technical skills?|skills?|habilidades? t[eé]cnicas?|habilidades?|compet[eê]ncias? t[eé]cnicas?|compet[eê]ncias?|tecnologias?|tech stack|stack t[eé]cnico|conhecimentos? t[eé]cnicos?)(?:\s*[:\-–—]\s*(.*))?$/i;
+  const nextSectionRe = /^(?:\d+[.)-]\s*)?(resumo|summary|perfil|sobre|experi[eê]ncia|experience|educa[cç][aã]o|education|forma[cç][aã]o|projetos?|projects?|certifica[cç][oõ]es?|certifications?|idiomas?|languages?|contato|contact|objetivo|objective|atividades|responsabilidades|publica[cç][oõ]es?|achievements?)\b/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line) continue;
+
+    const match = line.match(headingRe);
+    if (!match) continue;
+
+    const inlineBody = String(match[2] || '').trim();
+    let end = i + 1;
+    while (end < lines.length) {
+      const candidate = lines[end];
+      if (candidate && nextSectionRe.test(candidate)) break;
+      end++;
+      if (end - i > 30) break;
+    }
+
+    return { start: i, end, inlineBody };
+  }
+
+  return null;
+}
+
+function extractResumeSkillsSectionText(text) {
+  const lines = splitResumeLines(text);
+  const section = findResumeSkillsSection(lines);
+  if (!section) return '';
+
+  const out = [];
+  if (section.inlineBody) out.push(section.inlineBody);
+
+  for (let i = section.start + 1; i < section.end; i++) {
+    const line = lines[i];
+    if (!line) continue;
+    out.push(line);
+  }
+
+  return out.join('\n').trim();
+}
+
+const ATS_DEFAULT_SKILL_CATEGORIES = [
+  'Linguagens e Frameworks',
+  'Dados e Analise',
+  'Cloud e Infraestrutura',
+  'Ferramentas e Plataformas',
+  'Outras Competencias Tecnicas',
+];
+
+const ATS_ACRONYM_DISPLAY = {
+  api: 'API',
+  apis: 'APIs',
+  ai: 'AI',
+  aws: 'AWS',
+  ci: 'CI',
+  cd: 'CD',
+  css: 'CSS',
+  css3: 'CSS3',
+  dax: 'DAX',
+  devops: 'DevOps',
+  etl: 'ETL',
+  github: 'GitHub',
+  gitlab: 'GitLab',
+  gcp: 'GCP',
+  html: 'HTML',
+  html5: 'HTML5',
+  http: 'HTTP',
+  https: 'HTTPS',
+  ia: 'IA',
+  ios: 'iOS',
+  jdbc: 'JDBC',
+  jest: 'Jest',
+  jpa: 'JPA',
+  json: 'JSON',
+  jwt: 'JWT',
+  kubernetes: 'Kubernetes',
+  llm: 'LLM',
+  mongodb: 'MongoDB',
+  mysql: 'MySQL',
+  nestjs: 'NestJS',
+  nextjs: 'Next.js',
+  node: 'Node.js',
+  nodejs: 'Node.js',
+  nosql: 'NoSQL',
+  oauth: 'OAuth',
+  pandas: 'pandas',
+  pdf: 'PDF',
+  php: 'PHP',
+  postgresql: 'PostgreSQL',
+  powerbi: 'Power BI',
+  powerquery: 'Power Query',
+  reactjs: 'React',
+  redis: 'Redis',
+  rds: 'Amazon RDS',
+  rest: 'REST',
+  restful: 'RESTful',
+  restapi: 'REST API',
+  restapis: 'REST APIs',
+  aurora: 'Amazon Aurora',
+  lambda: 'AWS Lambda',
+  s3: 'Amazon S3',
+  sql: 'SQL',
+  sqlite: 'SQLite',
+  typescript: 'TypeScript',
+  ui: 'UI',
+  ux: 'UX',
+  vite: 'Vite',
+  vitest: 'Vitest',
+  websocket: 'WebSocket',
+};
+
+function formatAtsSkillLabel(skill) {
+  const canonical = canonicalSkill(skill);
+  const normalized = String(canonical || skill || '')
+    .replace(/[()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!normalized) return '';
+
+  const compact = normalized.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (ATS_ACRONYM_DISPLAY[compact]) return ATS_ACRONYM_DISPLAY[compact];
+
+  return normalized
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => {
+      const cleaned = part.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (ATS_ACRONYM_DISPLAY[cleaned]) return ATS_ACRONYM_DISPLAY[cleaned];
+      if (/^[A-Z0-9+#./-]+$/.test(part)) return part;
+      if (/^[a-z]+\.[a-z]+$/i.test(part)) {
+        return part
+          .split('.')
+          .map((piece) => ATS_ACRONYM_DISPLAY[piece.toLowerCase()] || (piece.charAt(0).toUpperCase() + piece.slice(1).toLowerCase()))
+          .join('.');
+      }
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
+
+function classifyAtsSkillCategory(skill) {
+  const canonical = canonicalSkill(skill);
+  const normalized = String(canonical || '').toLowerCase();
+
+  if (/(sql|postgres|mysql|oracle|sqlite|mongo|redis|elastic|kafka|rabbit|warehouse|lake|bi|analytics|power bi|power query|dax|pandas|numpy|spark|airflow|dbt|etl|ml|ai|llm|tensorflow|pytorch)/.test(normalized)) {
+    return 'Dados e Analise';
+  }
+  if (/(aws|azure|gcp|docker|kubernetes|terraform|ansible|jenkins|ci\/cd|devops|infra|linux|nginx|vercel|netlify|railway|cloud|serverless|lambda|s3|rds|cdn)/.test(normalized)) {
+    return 'Cloud e Infraestrutura';
+  }
+  if (/(jira|confluence|figma|photoshop|illustrator|postman|insomnia|github|gitlab|bitbucket|selenium|cypress|playwright|vitest|jest|junit|mockito|pytest|storybook|wordpress|shopify|salesforce)/.test(normalized)) {
+    return 'Ferramentas e Plataformas';
+  }
+  if (/(java|spring|node|nestjs|react|vue|angular|javascript|typescript|html|css|php|laravel|symfony|dotnet|go|golang|rust|ruby|rails|swift|kotlin|flutter|dart|android|ios|graphql|rest|api|frontend|backend|fullstack)/.test(normalized)) {
+    return 'Linguagens e Frameworks';
+  }
+
+  return 'Outras Competencias Tecnicas';
+}
+
+function extractStructuredSkillCategories(sectionText) {
+  const lines = splitResumeLines(sectionText).filter(Boolean);
+  const categories = [];
+  let current = null;
+
+  const looksLikeCategory = (line) => {
+    if (!line) return false;
+    if (line.length > 48) return false;
+    if (/^[A-ZÀ-Ý][A-Za-zÀ-ÿ&/\-\s]{1,47}$/.test(line) && !/[,.:;|]/.test(line)) return true;
+    if (/^(backend|frontend|front-end|back-end|dados|data|cloud|infra(?:estrutura)?|devops|ferramentas?|plataformas?|testes?|design|mobile|produto|gestao|marketing|vendas|atendimento|idiomas?|certificacoes?)$/i.test(line)) return true;
+    return false;
+  };
+
+  for (const line of lines) {
+    if (looksLikeCategory(line)) {
+      current = { name: line, skills: [] };
+      categories.push(current);
+      continue;
+    }
+
+    if (!current) continue;
+
+    const lineSkills = uniqueSkillList(
+      line
+        .split(/[•|;,]|\s+-\s+/g)
+        .map((part) => String(part || '').trim())
+        .filter(Boolean)
+    );
+    current.skills.push(...lineSkills);
+  }
+
+  return categories.filter((category) => category.skills.length);
+}
+
+function classifyExistingCategoryName(name) {
+  const normalized = normalizeResumeSkillToken(name);
+  if (/(banco de dados|database|databases)/.test(normalized)) return 'Dados e Analise';
+  if (/(dados|data|analytics|analise|bi)/.test(normalized)) return 'Dados e Analise';
+  if (/(cloud|infra|devops|servidor|deploy|plataforma)/.test(normalized)) return 'Cloud e Infraestrutura';
+  if (/(ferramenta|plataforma|tool|teste|qa|design|produto|gestao)/.test(normalized)) return 'Ferramentas e Plataformas';
+  if (/(backend|frontend|front-end|back-end)/.test(normalized)) return 'Linguagens e Frameworks';
+  if (/(banco)/.test(normalized)) return 'Dados e Analise';
+  if (/(backend|frontend|fullstack|linguagem|framework|desenvolvimento|mobile|web)/.test(normalized)) return 'Linguagens e Frameworks';
+  return 'Outras Competencias Tecnicas';
+}
+
+function normalizeResumeForAtsPdf(text, missingKeywords) {
+  const marker = 'Habilidades (ATS):';
+  const source = String(text || '');
+  const markerIndex = source.lastIndexOf(marker);
+  const baseText = markerIndex === -1 ? source.trimEnd() : source.slice(0, markerIndex).trimEnd();
+  const extraSkills = sanitizeInjectedSkills(extractInjectedSkills(missingKeywords, source));
+
+  const lines = splitResumeLines(baseText);
+  const section = findResumeSkillsSection(lines);
+  const existingSectionText = extractResumeSkillsSectionText(baseText);
+  const existingSkills = extractSkillsFromTextChunk(existingSectionText);
+  const allSkills = uniqueSkillList([...existingSkills, ...extraSkills]);
+
+  if (!allSkills.length) return baseText;
+
+  const existingCategories = extractStructuredSkillCategories(existingSectionText);
+  const categoryOrder = existingCategories.length
+    ? existingCategories.map((category) => category.name)
+    : ATS_DEFAULT_SKILL_CATEGORIES;
+  const grouped = Object.fromEntries(categoryOrder.map((category) => [category, []]));
+  const existingCategorySkillSets = new Map();
+
+  for (const category of existingCategories) {
+    grouped[category.name] = category.skills.map(formatAtsSkillLabel);
+    existingCategorySkillSets.set(
+      category.name,
+      new Set(category.skills.map((skill) => canonicalSkill(skill)).filter(Boolean))
+    );
+  }
+
+  const seen = new Set();
+  for (const skill of allSkills) {
+    const canonical = canonicalSkill(skill);
+    if (!canonical || seen.has(canonical)) continue;
+    seen.add(canonical);
+
+    let targetCategory = null;
+    for (const [name, skillSet] of existingCategorySkillSets.entries()) {
+      if (skillSet.has(canonical)) {
+        targetCategory = name;
+        break;
+      }
+    }
+
+    if (!targetCategory && existingCategories.length) {
+      const bucket = classifyAtsSkillCategory(skill);
+      targetCategory = existingCategories.find((category) => classifyExistingCategoryName(category.name) === bucket)?.name || null;
+    }
+
+    if (!targetCategory) {
+      const bucket = classifyAtsSkillCategory(skill);
+      targetCategory = categoryOrder.includes(bucket) ? bucket : categoryOrder[categoryOrder.length - 1];
+    }
+
+    const formatted = formatAtsSkillLabel(skill);
+    if (!grouped[targetCategory].includes(formatted)) {
+      grouped[targetCategory].push(formatted);
+    }
+  }
+
+  const rebuiltSection = [existingCategories.length ? lines[section?.start] || 'HABILIDADES TECNICAS' : 'HABILIDADES TECNICAS'];
+  for (const category of categoryOrder) {
+    const skills = grouped[category];
+    if (!skills.length) continue;
+    if (existingCategories.length || category !== 'Outras Competencias Tecnicas') {
+      rebuiltSection.push(category);
+      rebuiltSection.push(skills.join(' • '));
+    } else {
+      rebuiltSection.push(skills.join(' • '));
+    }
+  }
+
+  if (!section) {
+    return `${baseText}\n\n${rebuiltSection.join('\n')}\n`;
+  }
+
+  const before = lines.slice(0, section.start).filter((line) => line !== 'Habilidades (ATS):');
+  const after = lines.slice(section.end).filter((line) => line !== 'Habilidades (ATS):');
+  return [...before, ...rebuiltSection, ...after].join('\n').trimEnd();
 }
 
 function calcUnifiedMatchScore(job, profileSkills) {
@@ -703,6 +1014,21 @@ function injectKeywordsIntoResumeText(resumeBodyText, keywords) {
   const base = String(resumeBodyText || '').trimEnd();
   const inject = uniqueSkillList(keywords || []);
   if (!inject.length) return base;
+
+  const lines = splitResumeLines(base);
+  const section = findResumeSkillsSection(lines);
+
+  if (section) {
+    const existing = new Set(
+      extractSkillsFromTextChunk(extractResumeSkillsSectionText(base)).map(canonicalSkill)
+    );
+    const pending = inject.filter((skill) => !existing.has(canonicalSkill(skill)));
+    if (!pending.length) return base;
+
+    lines.splice(section.end, 0, pending.join(' | '));
+    return `${lines.join('\n').trimEnd()}\n`;
+  }
+
   return `${base}\n\nHabilidades (ATS):\n${inject.join(' | ')}\n`;
 }
 
@@ -1048,12 +1374,56 @@ async function extractTextFromPDF(file) {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const pages = [];
+
+  const joinTokens = (tokens) => {
+    let out = '';
+    for (const token of tokens) {
+      if (!token) continue;
+      if (!out) {
+        out = token;
+        continue;
+      }
+
+      const noSpaceBefore = /^[,.;:!?)]/.test(token);
+      const noSpaceAfter = /[(]$/.test(out);
+      out += (noSpaceBefore || noSpaceAfter ? '' : ' ') + token;
+    }
+    return out;
+  };
+
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    pages.push(content.items.map((item) => item.str).join(' '));
+
+    const byLine = new Map();
+    for (const item of content.items) {
+      const value = String(item?.str || '').trim();
+      if (!value) continue;
+
+      const transform = item?.transform || [];
+      const x = Number(transform[4] || 0);
+      const y = Number(transform[5] || 0);
+      const yKey = String(Math.round(y * 2) / 2);
+
+      if (!byLine.has(yKey)) byLine.set(yKey, []);
+      byLine.get(yKey).push({ x, value });
+    }
+
+    const lineKeys = Array.from(byLine.keys())
+      .map((k) => Number(k))
+      .sort((a, b) => b - a);
+
+    const lines = lineKeys
+      .map((key) => {
+        const items = byLine.get(String(key)) || [];
+        items.sort((a, b) => a.x - b.x);
+        return joinTokens(items.map((entry) => entry.value));
+      })
+      .filter(Boolean);
+
+    pages.push(lines.join('\n'));
   }
-  return pages.join('\n');
+  return pages.join('\n\n');
 }
 
 /**
@@ -1068,32 +1438,452 @@ async function extractTextFromDOCX(file) {
 }
 
 /**
- * Triggers download of the original PDF file unchanged.
- * @param {ArrayBuffer} originalPdfBytes
- * @param {string}      filename
+ * Generates and downloads an ATS-friendly PDF from plain text.
+ * @param {string} optimizedText
+ * @param {string} filename
  */
-function downloadOriginalPDF(originalPdfBytes, filename) {
-  const blob = new Blob([originalPdfBytes], { type: 'application/pdf' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
+function downloadAtsFriendlyPDF(optimizedText, filename) {
+  const jsPDFCtor = window?.jspdf?.jsPDF;
+  if (!jsPDFCtor) {
+    throw new Error('Biblioteca de PDF nao carregada. Recarregue a extensao.');
+  }
+
+  const doc = new jsPDFCtor({ unit: 'pt', format: 'a4' });
+  const margin = 48;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const maxWidth = pageWidth - (margin * 2);
+
+  const lines = String(optimizedText || '')
+    .replace(/\r/g, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line, idx, arr) => line || (arr[idx - 1] && arr[idx - 1] !== ''));
+
+  const firstLine = lines.find((line) => line) || 'Curriculo';
+  const bodyLines = lines.slice(lines.indexOf(firstLine) + 1);
+
+  const isHeading = (line) => {
+    if (!line) return false;
+    if (/^[A-ZÀ-Ý\s]{3,}$/.test(line)) return true;
+    if (/^(resumo|summary|habilidades?|habilidades? tecnicas?|technical skills?|experiencia|experience|educacao|education|projetos?|projects?|certificacoes?|certifications?|idiomas?|languages?|contato|contact|objetivo)$/i.test(line)) return true;
+    return false;
+  };
+
+  const drawWrapped = (text, options = {}) => {
+    const {
+      size = 11,
+      style = 'normal',
+      color = [0, 0, 0],
+      gap = 15,
+      x = margin,
+      width = maxWidth,
+    } = options;
+
+    doc.setFont('helvetica', style);
+    doc.setFontSize(size);
+    doc.setTextColor(color[0], color[1], color[2]);
+
+    const wrapped = doc.splitTextToSize(text || ' ', width);
+    for (const row of wrapped) {
+      if (y > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.text(row, x, y);
+      y += gap;
+    }
+
+    return wrapped.length;
+  };
+
+  let y = margin;
+
+  // Header simples e limpo para ATS
+  drawWrapped(firstLine, { size: 18, style: 'bold', gap: 22 });
+  y += 4;
+
+  for (const line of bodyLines) {
+    if (!line) {
+      y += 6;
+      continue;
+    }
+
+    if (isHeading(line)) {
+      y += 4;
+      drawWrapped(line.toUpperCase(), { size: 12, style: 'bold', gap: 16 });
+      continue;
+    }
+
+    const bullet = /^[-•]/.test(line);
+    const normalized = bullet ? line.replace(/^[-•]\s*/, '') : line;
+    if (bullet) {
+      drawWrapped(`- ${normalized}`, { size: 11, style: 'normal', gap: 15 });
+    } else {
+      drawWrapped(normalized, { size: 11, style: 'normal', gap: 15 });
+    }
+  }
+
+  doc.save(filename);
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-/**
- * Triggers download of the original DOCX file unchanged.
- * @param {File}   file
- * @param {string} filename
- */
-function downloadOriginalDOCX(file, filename) {
-  const url = URL.createObjectURL(file);
-  const a   = document.createElement('a');
-  a.href    = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+function wrapTextForPdf(font, text, fontSize, maxWidth) {
+  const words = String(text || '').split(/\s+/).filter(Boolean);
+  if (!words.length) return [''];
+
+  const lines = [];
+  let current = words[0];
+  for (let i = 1; i < words.length; i++) {
+    const candidate = `${current} ${words[i]}`;
+    if (font.widthOfTextAtSize(candidate, fontSize) <= maxWidth) {
+      current = candidate;
+    } else {
+      lines.push(current);
+      current = words[i];
+    }
+  }
+  lines.push(current);
+  return lines;
+}
+
+function extractInjectedSkills(missingKeywords, optimizedText) {
+  const marker = 'Habilidades (ATS):';
+  const fromMissing = uniqueSkillList(missingKeywords || []);
+  if (fromMissing.length) return fromMissing;
+
+  const text = String(optimizedText || '').trim();
+  const markerIndex = text.lastIndexOf(marker);
+  if (markerIndex === -1) return [];
+
+  const atsBlock = text.slice(markerIndex + marker.length).trim();
+  return uniqueSkillList(
+    atsBlock
+      .split(/\||\n/)
+      .map((v) => String(v || '').trim())
+      .filter(Boolean)
+  );
+}
+
+function sanitizeInjectedSkills(skills) {
+  const synonyms = window.SYNONYMS || {};
+  const knownTerms = new Set();
+  for (const [canonical, aliases] of Object.entries(synonyms)) {
+    knownTerms.add(normalizeResumeSkillToken(canonical));
+    for (const alias of aliases || []) {
+      knownTerms.add(normalizeResumeSkillToken(alias));
+    }
+  }
+
+  const raw = uniqueSkillList(skills || []);
+
+  const isClearlyInvalid = (normalized) => {
+    if (!normalized) return true;
+    if (/@/.test(normalized)) return true;
+    if (/^(https?:\/\/|www\.)/i.test(normalized)) return true;
+    if (/^[a-z0-9-]+\.(com|co|io|net|org|br|ai)(\/|$)/i.test(normalized)) return true;
+    if (/^[a-z]{1,3}\.[a-z]{1,3}$/i.test(normalized)) return true;
+    if (normalized.length > 60) return true;
+    return false;
+  };
+
+  const cleaned = raw.filter((skill) => {
+    const normalized = normalizeResumeSkillToken(skill);
+    return !isClearlyInvalid(normalized);
+  });
+
+  // Rank: known technical terms first, then common stack patterns, then others.
+  const rank = (value) => {
+    const normalized = normalizeResumeSkillToken(value);
+    if (knownTerms.has(normalized)) return 0;
+    if (/[+#]|\.|\d/.test(normalized)) return 1;
+    if (/^(aws|gcp|azure|docker|kubernetes|sql|react|node|java|python|php|dotnet|go|rust|flutter|android|ios)$/i.test(normalized)) return 1;
+    return 2;
+  };
+
+  const strict = cleaned
+    .sort((a, b) => rank(a) - rank(b))
+    .slice(0, 10);
+
+  if (strict.length) return strict;
+
+  // Fallback: if strict sanitization removed everything, keep a lenient subset
+  // (only removing clearly invalid tokens) so ATS skills are still inserted.
+  return raw
+    .filter((skill) => !isClearlyInvalid(normalizeResumeSkillToken(skill)))
+    .slice(0, 10);
+}
+
+async function findSkillsAnchorInPdf(binaryData) {
+  if (typeof pdfjsLib === 'undefined') return null;
+
+  const headingRe = /^(?:\d+[.)-]\s*)?(skills?|technical skills?|habilidades? t[eé]cnicas?|habilidades?|compet[eê]ncias? t[eé]cnicas?|compet[eê]ncias?|tecnologias?|tech stack|stack t[eé]cnico|conhecimentos? t[eé]cnicos?)(?:\s*[:\-–—]\s*(.*))?$/i;
+  const nextSectionRe = /^(?:\d+[.)-]\s*)?(resumo|summary|perfil|sobre|experi[eê]ncia|experience|educa[cç][aã]o|education|forma[cç][aã]o|projetos?|projects?|certifica[cç][oõ]es?|certifications?|idiomas?|languages?|contato|contact|objetivo|objective|atividades|responsabilidades|publica[cç][oõ]es?|achievements?)\b/i;
+  const pdf = await pdfjsLib.getDocument({ data: binaryData }).promise;
+
+  const scoreHeading = (text) => {
+    const normalized = String(text || '').toLowerCase();
+    let score = 0;
+    if (/habilidades?\s*t[eé]cnicas?|technical\s*skills?|tech\s*stack|stack\s*t[eé]cnico/.test(normalized)) score += 100;
+    if (/tecnologias?|conhecimentos?\s*t[eé]cnicos?|compet[eê]ncias?\s*t[eé]cnicas?/.test(normalized)) score += 60;
+    if (/skills?|habilidades?|compet[eê]ncias?/.test(normalized)) score += 30;
+    return score;
+  };
+
+  const inferSeparator = (linesText) => {
+    const source = linesText.join('\n');
+    if (/\u2022|•/.test(source)) return 'bullet';
+    if (/\s\|\s/.test(source)) return 'pipe';
+    if (/;/.test(source)) return 'semicolon';
+    return 'comma';
+  };
+
+  let bestAnchor = null;
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const lines = new Map();
+
+    for (const item of content.items) {
+      const text = String(item?.str || '').trim();
+      if (!text) continue;
+
+      const transform = item?.transform || [];
+      const x = Number(transform[4] || 0);
+      const y = Number(transform[5] || 0);
+      const h = Number(item?.height || transform[0] || 11);
+      const yKey = String(Math.round(y * 2) / 2);
+
+      if (!lines.has(yKey)) lines.set(yKey, []);
+      lines.get(yKey).push({ x, y, h, text });
+    }
+
+    const sortedY = Array.from(lines.keys())
+      .map((v) => Number(v))
+      .sort((a, b) => b - a);
+
+    const rows = sortedY.map((yKey) => {
+      const row = lines.get(String(yKey)) || [];
+      row.sort((a, b) => a.x - b.x);
+      const minX = Math.min(...row.map((entry) => entry.x));
+      const y = row[0]?.y ?? yKey;
+      const avgHeight = row.reduce((acc, entry) => acc + (entry.h || 11), 0) / Math.max(1, row.length);
+      return {
+        text: row.map((entry) => entry.text).join(' ').replace(/\s+/g, ' ').trim(),
+        minX: Number.isFinite(minX) ? minX : 44,
+        y,
+        h: Math.max(11, avgHeight),
+      };
+    });
+
+    for (let i = 0; i < rows.length; i++) {
+      const current = rows[i];
+      if (!headingRe.test(current.text)) continue;
+
+      let endIndex = i;
+      let nextSectionY = null;
+      for (let j = i + 1; j < rows.length; j++) {
+        const candidate = rows[j];
+        if (nextSectionRe.test(candidate.text)) {
+          nextSectionY = candidate.y;
+          break;
+        }
+        endIndex = j;
+        if (j - i > 30) break;
+      }
+
+      const endRow = rows[endIndex] || current;
+      const lineHeight = Math.max(13, Math.min(18, endRow.h + 3));
+      const startY = endRow.y - lineHeight;
+      const minY = nextSectionY != null
+        ? (nextSectionY + Math.max(10, lineHeight - 2))
+        : 44;
+
+      const sectionLines = rows.slice(i + 1, endIndex + 1).map((row) => row.text).filter(Boolean);
+      const anchor = {
+        pageIndex: pageNumber - 1,
+        x: current.minX,
+        y: startY,
+        lineHeight,
+        minY,
+        sectionLines,
+        sectionSeparator: inferSeparator(sectionLines),
+        headingScore: scoreHeading(current.text),
+      };
+
+      if (!bestAnchor || anchor.headingScore > bestAnchor.headingScore) {
+        bestAnchor = anchor;
+      }
+    }
+  }
+
+  return bestAnchor;
+}
+
+function toUint8Array(data) {
+  if (!data) return new Uint8Array();
+  if (data instanceof Uint8Array) return data;
+  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  if (ArrayBuffer.isView(data)) {
+    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  }
+  return new Uint8Array();
+}
+
+function hasPdfHeader(bytes) {
+  const source = toUint8Array(bytes);
+  if (source.length < 5) return false;
+
+  const maxOffset = Math.min(1024, source.length - 5);
+  for (let i = 0; i <= maxOffset; i++) {
+    if (
+      source[i] === 0x25 && // %
+      source[i + 1] === 0x50 && // P
+      source[i + 2] === 0x44 && // D
+      source[i + 3] === 0x46 && // F
+      source[i + 4] === 0x2d // -
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function resolvePdfBytesForEdit(preferredBytes) {
+  const preferred = toUint8Array(preferredBytes);
+  if (preferred.length && hasPdfHeader(preferred)) {
+    return new Uint8Array(preferred);
+  }
+
+  if (resumeOriginalFile && typeof resumeOriginalFile.arrayBuffer === 'function') {
+    const fresh = new Uint8Array(await resumeOriginalFile.arrayBuffer());
+    if (fresh.length && hasPdfHeader(fresh)) {
+      return fresh;
+    }
+  }
+
+  throw new Error('Arquivo PDF invalido para edicao. Reimporte um PDF valido e tente novamente.');
+}
+
+async function downloadOptimizedPdfFromOriginal(originalPdfBytes, missingKeywords, filename) {
+  const pdfLib = window?.PDFLib;
+  if (!pdfLib?.PDFDocument || !pdfLib?.StandardFonts) {
+    throw new Error('Biblioteca de edicao de PDF nao carregada. Recarregue a extensao.');
+  }
+
+  const { PDFDocument, StandardFonts, rgb } = pdfLib;
+  const rawSkills = extractInjectedSkills(missingKeywords, resumeOptimizedText);
+  const sectionText = extractResumeSkillsSectionText(resumeText);
+  const existingSectionSkills = new Set(
+    extractSkillsFromTextChunk(sectionText).map(canonicalSkill).filter(Boolean)
+  );
+
+  const skills = sanitizeInjectedSkills(rawSkills)
+    .filter((skill) => !existingSectionSkills.has(canonicalSkill(skill)));
+
+  if (!skills.length) {
+    downloadBlob(new Blob([originalPdfBytes], { type: 'application/pdf' }), filename);
+    return;
+  }
+
+  const baseBytes = await resolvePdfBytesForEdit(originalPdfBytes);
+
+  // PDF.js may transfer ownership of the passed buffer to its worker.
+  // Use an isolated copy so PDF-lib still receives intact bytes.
+  const anchorBytes = new Uint8Array(baseBytes);
+  const editableBytes = new Uint8Array(baseBytes);
+
+  const anchor = await findSkillsAnchorInPdf(anchorBytes);
+
+  let pdfDoc;
+  try {
+    pdfDoc = await PDFDocument.load(editableBytes);
+  } catch (error) {
+    const message = String(error?.message || '');
+    if (!/No PDF header found/i.test(message)) {
+      throw error;
+    }
+
+    // Last-resort retry with a fresh read from File in case previous buffers were detached.
+    const retryBytes = await resolvePdfBytesForEdit(null);
+    pdfDoc = await PDFDocument.load(retryBytes);
+  }
+  const pages = pdfDoc.getPages();
+
+  const baseWidth = pages[0]?.getWidth() || 595;
+  const baseHeight = pages[0]?.getHeight() || 842;
+  let page = anchor?.pageIndex >= 0 && pages[anchor.pageIndex]
+    ? pages[anchor.pageIndex]
+    : pages[pages.length - 1] || pdfDoc.addPage([baseWidth, baseHeight]);
+
+  const bodyFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const margin = 44;
+  const lineHeight = anchor?.lineHeight ? Math.max(13, Math.min(18, anchor.lineHeight)) : 15;
+  const bodySize = Math.max(10, Math.min(12, lineHeight - 3));
+
+  const ensureSpace = (needed) => {
+    const minY = margin;
+    if (cursorY - needed < minY) {
+      page = pdfDoc.addPage([baseWidth, baseHeight]);
+      cursorY = baseHeight - margin;
+      cursorX = margin;
+      textMaxWidth = Math.max(120, baseWidth - (margin * 2));
+    }
+  };
+
+  let cursorX = anchor?.x ? Math.max(margin, anchor.x) : margin;
+  let textMaxWidth = Math.max(120, baseWidth - cursorX - margin);
+  let cursorY = anchor?.y ? anchor.y - lineHeight : baseHeight - margin;
+  if (cursorY < margin + lineHeight) {
+    cursorY = baseHeight - margin;
+  }
+
+  const buildFormattedSkillLines = () => {
+    const separator = anchor?.sectionSeparator || 'comma';
+
+    if (separator === 'bullet') {
+      return skills.flatMap((skill) => wrapTextForPdf(bodyFont, `• ${skill}`, bodySize, textMaxWidth));
+    }
+
+    let inline = '';
+    if (separator === 'pipe') inline = skills.join(' | ');
+    else if (separator === 'semicolon') inline = skills.join('; ');
+    else inline = skills.join(', ');
+
+    return wrapTextForPdf(bodyFont, inline, bodySize, textMaxWidth);
+  };
+
+  let wrappedLines = buildFormattedSkillLines();
+
+  if (anchor?.minY != null) {
+    const availableHeight = Math.max(0, cursorY - anchor.minY);
+    const neededHeight = wrappedLines.length * lineHeight;
+    if (neededHeight > availableHeight) {
+      page = pdfDoc.addPage([baseWidth, baseHeight]);
+      cursorX = margin;
+      textMaxWidth = Math.max(120, baseWidth - (margin * 2));
+      cursorY = baseHeight - margin;
+      wrappedLines = buildFormattedSkillLines();
+    }
+  }
+
+  for (const line of wrappedLines) {
+    ensureSpace(lineHeight);
+    page.drawText(line, { x: cursorX, y: cursorY, size: bodySize, font: bodyFont, color: rgb(0, 0, 0) });
+    cursorY -= lineHeight;
+  }
+
+  const bytes = await pdfDoc.save();
+  downloadBlob(new Blob([bytes], { type: 'application/pdf' }), filename);
 }
 
 function populateJobSelect(jobs) {
@@ -1451,10 +2241,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const job      = _resumeTabJobs[parseInt(select.value, 10)];
     const baseName = job ? `curriculo-ats-${job.site}-${Date.now()}` : `curriculo-ats-${Date.now()}`;
 
-    if (resumeIsPDF) {
-      downloadOriginalPDF(resumeOriginalBytes, `${baseName}.pdf`);
-    } else {
-      downloadOriginalDOCX(resumeOriginalFile, `${baseName}.docx`);
+    try {
+      const baseOutputText = String(resumeOptimizedText || '').trim() || String(resumeText || '').trim();
+      const outputText = normalizeResumeForAtsPdf(baseOutputText, resumeMissingKeywords);
+      if (!outputText) {
+        throw new Error('Nao foi possivel gerar o conteudo otimizado do curriculo.');
+      }
+
+      downloadAtsFriendlyPDF(outputText, `${baseName}.pdf`);
+    } catch (error) {
+      console.error(error);
+      window.alert(`Falha ao gerar curriculo otimizado: ${error.message}`);
     }
   });
 
