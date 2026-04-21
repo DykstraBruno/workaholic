@@ -58,10 +58,10 @@ describe('filterJobs — score 100', () => {
 });
 
 describe('filterJobs — score 50', () => {
-  test('job with half the profile skills returns score 50', () => {
-    // Profile has 4 skills, job matches 2 → 50%
-    const jobs = [makeJob({ skills: ['react', 'typescript'] })];
-    const profile = makeProfile({ skills: ['react', 'typescript', 'node', 'docker'] });
+  test('job with 50% of required skills returns score 50', () => {
+    // Job requires 4 skills, you have 2 → 2/4 = 50%
+    const jobs = [makeJob({ skills: ['react', 'typescript', 'node', 'docker'] })];
+    const profile = makeProfile({ skills: ['react', 'typescript'] });
     const result = filterJobs(jobs, profile);
     expect(result).toHaveLength(1);
     expect(result[0].score).toBe(50);
@@ -69,43 +69,38 @@ describe('filterJobs — score 50', () => {
 });
 
 describe('filterJobs — score below threshold', () => {
-  test('job with low score and insufficient absolute matches is discarded', () => {
-    // Profile has 8 skills, job matches 1 → 12.5%, needs at least 2 matches.
-    const jobs = [makeJob({ skills: ['react'] })];
-    const profile = makeProfile({
-      skills: ['react', 'typescript', 'node', 'docker', 'postgres', 'mongo', 'aws', 'jest'],
-    });
+  test('job with very low score (0 matches) is discarded', () => {
+    // Job requires Python, you have React/TS → 0/1 = 0%
+    const jobs = [makeJob({ skills: ['python'] })];
+    const profile = makeProfile({ skills: ['react', 'typescript'] });
     const result = filterJobs(jobs, profile);
     expect(result).toHaveLength(0);
   });
 
-  test('job with 3 matched skills is accepted even with low percentage on large profile', () => {
+  test('job with low score but 1 match is accepted (threshold is 20%)', () => {
+    // Job requires 5 skills, you have 1 → 1/5 = 20%, passes threshold
+    const jobs = [makeJob({ skills: ['react', 'python', 'java', 'go', 'rust'] })];
+    const profile = makeProfile({ skills: ['react', 'typescript', 'node', 'docker', 'postgres'] });
+    const result = filterJobs(jobs, profile);
+    expect(result).toHaveLength(1);
+    expect(result[0].score).toBe(20);
+  });
+
+  test('job with text fallback matching is accepted', () => {
+    // No structured skills, but text mentions React, TypeScript
+    // Profile has 5 skills, 2 matched → 40%
     const jobs = [makeJob({
       title: 'Backend role',
       description: 'Stack: React, Node.js, TypeScript.',
       skills: [],
     })];
     const profile = makeProfile({
-      skills: [
-        'react', 'node', 'typescript', 'python', 'docker', 'postgres', 'mongo', 'vue',
-        'angular', 'javascript', 'redis', 'aws', 'gcp', 'kubernetes', 'graphql', 'jest'
-      ],
+      skills: ['react', 'node', 'typescript', 'python', 'docker'],
     });
 
     const result = filterJobs(jobs, profile);
     expect(result).toHaveLength(1);
-    expect(result[0].score).toBeGreaterThan(0);
-  });
-
-  test('job with 1 matched skill is accepted for small profile', () => {
-    const jobs = [makeJob({
-      title: 'React Developer',
-      description: 'Projeto em React',
-      skills: [],
-    })];
-    const profile = makeProfile({ skills: ['react', 'node', 'typescript', 'docker', 'aws'] });
-    const result = filterJobs(jobs, profile);
-    expect(result).toHaveLength(1);
+    expect(result[0].score).toBeGreaterThan(20);
   });
 });
 
@@ -116,11 +111,12 @@ describe('filterJobs — text fallback matching', () => {
       description: 'Build internal tools with Node.js for analytics teams.',
       skills: [],
     })];
-    const profile = makeProfile({ skills: ['react', 'node'] });
+    const profile = makeProfile({ skills: ['react', 'node', 'typescript'] });
     const result = filterJobs(jobs, profile);
 
     expect(result).toHaveLength(1);
-    expect(result[0].score).toBe(100);
+    // Enrichment-only jobs use conservative denominator floor.
+    expect(result[0].score).toBe(50);
   });
 
   test('uses synonym matching inside description text', () => {
@@ -133,7 +129,8 @@ describe('filterJobs — text fallback matching', () => {
     const result = filterJobs(jobs, profile);
 
     expect(result).toHaveLength(1);
-    expect(result[0].score).toBe(100);
+    // 2 inferred matches over denominator floor 4 => 50%
+    expect(result[0].score).toBe(50);
   });
 });
 

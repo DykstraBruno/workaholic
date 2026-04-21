@@ -17,16 +17,25 @@ const SELECTORS = {
   title: [
     // Canonical LinkedIn title anchor in search result cards.
     'h3.base-search-card__title a',
+    // Common layout where title text is in h3 and link is a sibling anchor.
+    'h3.base-search-card__title',
+    '.base-search-card__title',
+    // Primary link class used in many LinkedIn cards.
+    'a.base-card__full-link',
     // Fallback for cards where title is attached to aria-label.
     '[aria-label*="vaga" i]',
     // Generic heading anchor fallback.
     'h3 a',
+    'h3',
   ],
   description: [
     // Snippet/description text in standard LinkedIn list cards.
     '.base-search-card__snippet',
+    '.base-search-card__metadata',
+    '.base-search-card__subtitle',
     // Fallback for accessibility-labelled summary blocks.
     '[aria-label*="descri" i]',
+    '[aria-label*="resumo" i]',
     // Generic paragraph fallback.
     'p',
   ],
@@ -74,6 +83,39 @@ function firstAttr(root, selectors, attr) {
     if (value) return value;
   }
   return '';
+}
+
+function compactText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function collapseRepeatedTitle(title) {
+  const sanitize = (v) => compactText(v).replace(/\s+with\s+verification$/i, '').trim();
+  const text = compactText(title);
+  if (!text) return '';
+
+  // Case 1: exact duplicated half: "ABCABC" or "ABC ABC".
+  const len = text.length;
+  if (len % 2 === 0) {
+    const first = text.slice(0, len / 2).trim();
+    const second = text.slice(len / 2).trim();
+    if (first && second && first.toLowerCase() === second.toLowerCase()) {
+      return sanitize(first);
+    }
+  }
+
+  // Case 2: duplicated leading phrase, e.g. "Python Developer Python Developer with ...".
+  const words = text.split(' ').filter(Boolean);
+  for (let n = Math.min(6, Math.floor(words.length / 2)); n >= 2; n--) {
+    const a = words.slice(0, n).join(' ').toLowerCase();
+    const b = words.slice(n, n * 2).join(' ').toLowerCase();
+    if (a && a === b) {
+      return sanitize([...words.slice(0, n), ...words.slice(n * 2)].join(' '));
+    }
+  }
+
+  // Case 3: LinkedIn may append verification label to title text.
+  return sanitize(text);
 }
 
 function parseSkills(card) {
@@ -172,15 +214,33 @@ function parseLinkedIn(html) {
     if (!cards.length) return [];
 
     return cards.map((card) => {
-      const title = firstText(card, SELECTORS.title);
-      const description = firstText(card, SELECTORS.description);
+      let title = firstText(card, SELECTORS.title);
+      let description = firstText(card, SELECTORS.description);
       const skills = parseSkills(card);
       const budgetText = firstText(card, SELECTORS.budget);
       const budget = parseBudget(budgetText);
 
       const href = firstAttr(card, SELECTORS.title, 'href')
+        || firstAttr(card, ['a.base-card__full-link', 'a[href*="linkedin.com/jobs/view/"]'], 'href')
         || firstAttr(card, ['a[href*="/jobs/view/"]'], 'href');
       const url = toAbsoluteUrl(href, 'https://www.linkedin.com');
+
+      if (!title) {
+        const anchorText = firstText(card, ['a.base-card__full-link', 'a[href*="/jobs/view/"]', 'a']);
+        if (anchorText) title = anchorText;
+      }
+
+      title = collapseRepeatedTitle(title);
+
+      if (!description) {
+        const wholeCardText = compactText(card.textContent || '');
+        const titleText = compactText(title || '');
+        if (wholeCardText && titleText && wholeCardText.startsWith(titleText)) {
+          description = compactText(wholeCardText.slice(titleText.length));
+        } else {
+          description = wholeCardText;
+        }
+      }
 
       const postedAttr = firstAttr(card, SELECTORS.postedAt, 'datetime');
       const postedText = postedAttr || firstText(card, SELECTORS.postedAt);

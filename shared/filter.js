@@ -15,10 +15,64 @@ const SYNONYMS = {
   postgres:   ['postgres', 'postgresql'],
   mongo:      ['mongo', 'mongodb'],
   docker:     ['docker', 'dockerfile'],
+  java:       ['java', 'jvm'],
+  spring:     ['spring', 'spring boot', 'springboot'],
+  sql:        ['sql', 'mysql', 'mariadb'],
+  aws:        ['aws', 'amazon web services'],
+  gcp:        ['gcp', 'google cloud'],
+  azure:      ['azure', 'microsoft azure'],
+  kubernetes: ['kubernetes', 'k8s'],
+  git:        ['git', 'github', 'gitlab', 'bitbucket'],
+  linux:      ['linux', 'ubuntu', 'centos'],
+  rest:       ['rest', 'restful', 'rest api', 'api rest'],
+  graphql:    ['graphql'],
+  nextjs:     ['next.js', 'nextjs', 'next'],
+  nestjs:     ['nest.js', 'nestjs', 'nest'],
+  redis:      ['redis'],
+  kafka:      ['kafka'],
+  rabbitmq:   ['rabbitmq', 'rabbit mq'],
+  jenkins:    ['jenkins'],
+  cicd:       ['ci/cd', 'ci cd', 'continuous integration'],
+  devops:     ['devops'],
+  html:       ['html', 'html5'],
+  css:        ['css', 'css3', 'sass', 'scss', 'less'],
+  php:        ['php', 'laravel', 'symfony', 'codeigniter'],
+  dotnet:     ['.net', 'dotnet', 'asp.net', 'c#', 'csharp'],
+  golang:     ['go', 'golang'],
+  rust:       ['rust', 'rustlang'],
+  ruby:       ['ruby', 'rails', 'ruby on rails'],
+  swift:      ['swift', 'swiftui'],
+  kotlin:     ['kotlin'],
+  flutter:    ['flutter', 'dart'],
+  reactnative: ['react native', 'react-native'],
+  android:    ['android', 'android studio'],
+  ios:        ['ios', 'xcode'],
+  unity:      ['unity', 'unity3d'],
+  tensorflow: ['tensorflow', 'tf'],
+  pytorch:    ['pytorch'],
+  sklearn:    ['scikit-learn', 'sklearn'],
+  pandas:     ['pandas'],
+  powerbi:    ['power bi', 'powerbi'],
+  tableau:    ['tableau'],
+  figma:      ['figma'],
+  photoshop:  ['photoshop', 'illustrator', 'adobe xd'],
+  wordpress:  ['wordpress', 'wp', 'elementor'],
+  shopify:    ['shopify'],
+  salesforce: ['salesforce', 'crm salesforce'],
+  jira:       ['jira', 'confluence'],
+  selenium:   ['selenium', 'cypress', 'playwright'],
+  jest:       ['jest', 'mocha', 'jasmine', 'vitest'],
+  terraform:  ['terraform', 'ansible', 'puppet'],
+  nginx:      ['nginx', 'apache'],
+  elasticsearch: ['elasticsearch', 'elastic', 'opensearch'],
+  socketio:   ['socket.io', 'websocket', 'websockets'],
+  fullstack:  ['full stack', 'fullstack', 'full-stack'],
+  frontend:   ['frontend', 'front-end', 'front end'],
+  backend:    ['backend', 'back-end', 'back end'],
 };
 
-const MIN_MATCH_SCORE = 30;
-const MIN_MATCHED_SKILLS = 3;
+const MIN_MATCH_SCORE = 20;
+const MIN_MATCHED_SKILLS = 1;
 
 function normalizeForTextMatch(value) {
   return String(value || '')
@@ -110,18 +164,85 @@ function textMentionsSkill(text, skill) {
 
 /**
  * Calculates the match score between a job and a profile.
- * Score = (skills in common / total profile skills) * 100
- * Returns 0 when the profile has no skills.
- * Falls back to title/description text matching when structured skills are sparse.
+ * Score = (your matching skills / job required skills) * 100
+ * This shows what % of the job's requirements you can cover.
+ * When job has no structured skills, falls back to: (matches / profile skills) * 100
  * @param {Object|string[]} jobOrSkills
  * @param {string[]} profileSkills
  * @returns {number}
  */
 function calcScore(jobOrSkills, profileSkills) {
   if (!profileSkills || profileSkills.length === 0) return 0;
+
+  const jobSkills = Array.isArray(jobOrSkills) ? jobOrSkills : jobOrSkills?.skills;
+  const jobSet = canonicalSet(jobSkills);
   const profileSet = canonicalSet(profileSkills);
   const matches = countMatches(jobOrSkills, profileSkills);
+
+  // If job has structured skills, use job-perspective: % of job requirements covered
+  if (jobSet.size > 0) {
+    return (matches / jobSet.size) * 100;
+  }
+
+  // Fallback for text-based matching: % of profile skills mentioned in job
   return (matches / profileSet.size) * 100;
+}
+
+/**
+ * Computes a conservative score for jobs that had no structured skills and were
+ * enriched from sparse text. This avoids flat 60% scores from single mentions.
+ *
+ * Example: if only 1 inferred skill exists, denominator floor keeps score low.
+ * @param {number} matches
+ * @param {number} inferredSkillCount
+ * @returns {number}
+ */
+function calcSparseEnrichedScore(matches, inferredSkillCount) {
+  const denominator = Math.max(4, inferredSkillCount || 0);
+  if (!denominator) return 0;
+  return (matches / denominator) * 100;
+}
+
+/**
+ * Enriches a job that has no/minimal skills by extracting from description.
+ * Uses text-based keyword matching against known synonyms + common tech terms.
+ * Only enrich if description is substantial (> 100 chars) to avoid false positives.
+ * @param {Object} job
+ * @returns {Object}
+ */
+function enrichJobWithDescriptionSkills(job) {
+  const currentSkills = Array.isArray(job.skills) ? job.skills : [];
+
+  // Skip enrichment only when 2+ skills exist AND at least one maps to a known canonical.
+  // Long-phrase JSON-LD skills (e.g. "Experiência com Node.js") don't canonicalize, so we
+  // still need to enrich from description in that case.
+  if (currentSkills.length >= 2 && canonicalSet(currentSkills).size > 0) return job;
+
+  const fullText = `${job.title || ''} ${job.description || ''}`;
+  // Don't enrich if description is too sparse
+  if (fullText.length < 40) return job;
+
+  const descriptionText = fullText.toLowerCase();
+  const extractedSkills = [];
+  const seen = new Set();
+
+  for (const [canonical, aliases] of Object.entries(SYNONYMS)) {
+    for (const alias of [canonical, ...aliases]) {
+      const pattern = new RegExp(`(^|[^a-z0-9+#])${escapeRegExp(alias)}($|[^a-z0-9+#])`, 'i');
+      if (pattern.test(descriptionText) && !seen.has(canonical)) {
+        extractedSkills.push(canonical);
+        seen.add(canonical);
+        break;
+      }
+    }
+  }
+
+  if (!extractedSkills.length) return job;
+
+  return {
+    ...job,
+    skills: [...currentSkills, ...extractedSkills],
+  };
 }
 
 /**
@@ -131,8 +252,8 @@ function calcScore(jobOrSkills, profileSkills) {
  *   1. Discard jobs from sites disabled in the profile
  *   2. Discard jobs whose title contains a blacklisted word
  *   3. Discard jobs where budget.max < profile.minBudget (when both defined)
- *   4. Calculate score: (matching skills / total profile skills) * 100
- *   5. Discard jobs with score < MIN_MATCH_SCORE (currently 30)
+ *   4. Calculate score: (your matching skills / job required skills) * 100
+ *   5. Discard jobs with score < MIN_MATCH_SCORE (20%) or 0 skills matched
  *   6. Sort by score descending
  *
  * @param {Object[]} jobs     - Array of normalised job objects
@@ -177,10 +298,27 @@ function filterJobs(jobs, profile) {
       job.budget.max < minBudget
     ) continue;
 
+    // Enrich job with skills from description if structured skills are missing
+    const originalSkillCount = (Array.isArray(job.skills) ? job.skills.length : 0);
+    const enrichedJob = enrichJobWithDescriptionSkills(job);
+    const enrichedSkillCount = (Array.isArray(enrichedJob.skills) ? enrichedJob.skills.length : 0);
+    const wasEnriched = enrichedSkillCount > originalSkillCount;
+
     // 4 & 5. Score / absolute matches — discard if both are below threshold.
-    const matches = countMatches(job, profileSkills);
-    const score = calcScore(job, profileSkills);
-    if (matches < minMatches && score < minScore) continue;
+    const matches = countMatches(enrichedJob, profileSkills);
+    let score = calcScore(enrichedJob, profileSkills);
+
+    // For cards with no structured skills, use conservative score from inferred skills.
+    if (wasEnriched && originalSkillCount === 0) {
+      score = calcSparseEnrichedScore(matches, enrichedSkillCount);
+    }
+
+    if (matches < 1) continue;
+
+    // For jobs without structured skills and without enrichment, keep a softer gate:
+    // one real skill mention is enough to keep visibility for sparse-site cards.
+    const hasOnlySparseTextSignals = originalSkillCount === 0 && !wasEnriched;
+    if (!hasOnlySparseTextSignals && score < minScore) continue;
 
     results.push({ ...job, score });
   }

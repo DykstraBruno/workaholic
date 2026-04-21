@@ -545,19 +545,31 @@ async function scrapeSiteInTab(tabId, site, profile) {
 // Notifications + badge
 // ---------------------------------------------------------------------------
 
+async function createNotificationSafe(notificationId, options) {
+	const iconUrl = chrome.runtime.getURL('icons/icon128.png');
+
+	try {
+		await chrome.notifications.create(notificationId, {
+			iconUrl,
+			...options,
+		});
+	} catch (error) {
+		// Avoid unhandled promise rejections from image download failures.
+		console.warn('Notification skipped:', notificationId, error?.message || error);
+	}
+}
+
 function notifyJob(job) {
-	chrome.notifications.create(`job-${job.id}`, {
+	void createNotificationSafe(`job-${job.id}`, {
 		type: 'basic',
-		iconUrl: 'icons/icon128.png',
 		title: job.title || 'New job match',
 		message: `${SITE_LABELS[job.site] || job.site} - ${Math.round(job.score || 0)}% match`,
 	});
 }
 
 function notifyHealth(site, failures) {
-	chrome.notifications.create(`health-${site}`, {
+	void createNotificationSafe(`health-${site}`, {
 		type: 'basic',
-		iconUrl: 'icons/icon128.png',
 		title: 'Scraper health warning',
 		message: `${SITE_LABELS[site] || site} scraper may be broken (${failures} consecutive failures).`,
 	});
@@ -640,6 +652,54 @@ function createSiteDiagnostics(enabledSites) {
 
 async function saveDiagnostics(diagnostics) {
 	await localSet({ [DIAGNOSTICS_KEY]: diagnostics });
+}
+
+function canonicalizeJobUrl(rawUrl) {
+	const value = String(rawUrl || '').trim();
+	if (!value) return '';
+
+	try {
+		const u = new URL(value);
+		u.hash = '';
+		u.search = '';
+		u.pathname = u.pathname.replace(/\/+$/, '');
+		return u.toString();
+	} catch {
+		return value.split('#')[0].split('?')[0].replace(/\/+$/, '');
+	}
+}
+
+function canonicalizeJobTitle(rawTitle) {
+	return String(rawTitle || '')
+		.toLowerCase()
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.replace(/[^a-z0-9\s|()-]/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+function dedupeJobs(jobs) {
+	const seenByUrl = new Set();
+	const seenByTitle = new Set();
+	const out = [];
+
+	for (const job of jobs || []) {
+		const siteKey = String(job?.site || '').trim().toLowerCase();
+		const urlKey = canonicalizeJobUrl(job?.url || '');
+		const titleKey = canonicalizeJobTitle(job?.title || '');
+		const titleFingerprint = titleKey ? `${siteKey}::${titleKey}` : '';
+		const urlFingerprint = urlKey ? `${siteKey}::${urlKey}` : '';
+
+		if (urlFingerprint && seenByUrl.has(urlFingerprint)) continue;
+		if (titleFingerprint && seenByTitle.has(titleFingerprint)) continue;
+
+		if (urlFingerprint) seenByUrl.add(urlFingerprint);
+		if (titleFingerprint) seenByTitle.add(titleFingerprint);
+		out.push(job);
+	}
+
+	return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -739,7 +799,8 @@ async function runFetchCycle() {
 	}
 
 	const filtered = filterJobs(normalized, profile);
-	for (const job of filtered) {
+	const dedupedFiltered = dedupeJobs(filtered);
+	for (const job of dedupedFiltered) {
 		if (siteDiagnostics[job.site]) {
 			siteDiagnostics[job.site].matchedJobs++;
 		}
@@ -756,13 +817,13 @@ async function runFetchCycle() {
 		totals: {
 			rawJobs: Object.values(siteDiagnostics).reduce((sum, site) => sum + site.rawJobs, 0),
 			normalizedJobs: Object.values(siteDiagnostics).reduce((sum, site) => sum + site.normalizedJobs, 0),
-			matchedJobs: filtered.length,
+			matchedJobs: dedupedFiltered.length,
 		},
 		sites: enabledSites.map((site) => siteDiagnostics[site]),
 	};
 
 	let newJobsCount = 0;
-	for (const job of filtered) {
+	for (const job of dedupedFiltered) {
 		if (job.score < 40) continue;
 
 		const seen = await hasBeenSeen(job.id);
@@ -773,7 +834,7 @@ async function runFetchCycle() {
 		newJobsCount++;
 	}
 
-	await saveJobs(filtered);
+	await saveJobs(dedupedFiltered);
 	await localSet({ lastFetch: new Date().toISOString() });
 	await saveDiagnostics(diagnostics);
 	setBadge(newJobsCount);
@@ -783,7 +844,7 @@ async function runFetchCycle() {
 		await ensureAuthTab(site, profile);
 		return {
 			ok: true,
-			jobs: filtered,
+			jobs: dedupedFiltered,
 			auth: {
 				required: true,
 				pending: false,
@@ -793,7 +854,7 @@ async function runFetchCycle() {
 		};
 	}
 
-	return { ok: true, jobs: filtered };
+	return { ok: true, jobs: dedupedFiltered };
 }
 
 // ---------------------------------------------------------------------------
