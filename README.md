@@ -1,16 +1,22 @@
 # Workaholic
 
-Workaholic is a Chrome extension that continuously monitors freelance job platforms, applies your personal filters locally, and alerts you when new matching jobs appear.
+Workaholic is a Chrome extension that monitors job and freelance platforms, applies your filters locally, and notifies you only when new jobs match your profile.
 
-## What It Does
+---
 
-- Aggregates jobs from multiple platforms
-- Filters by your profile (skills, blacklist, budget, enabled sites)
-- Scores match quality
-- Notifies you only about unseen matching jobs
-- Runs automatically in the background at your selected interval
+## PT-BR
 
-## Supported Platforms
+### Funcionalidades
+
+- Busca vagas em varias plataformas.
+- Aplica filtros por perfil: habilidades, palavras-chave/cargo, palavras bloqueadas, orcamento minimo e plataformas ativas.
+- Calcula score de aderencia com base nas habilidades exigidas pela vaga.
+- Enriquece vagas com pouco metadado extraindo habilidades de titulo e descricao.
+- Remove duplicatas de vagas repetidas no mesmo ciclo.
+- Notifica somente vagas novas que passaram no filtro.
+- Executa buscas automaticas em background no intervalo configurado.
+
+### Plataformas Suportadas
 
 - Upwork
 - Workana
@@ -19,91 +25,263 @@ Workaholic is a Chrome extension that continuously monitors freelance job platfo
 - Indeed (BR)
 - Gupy
 
-## Install in Chrome (Developer Mode)
+### Instalacao no Chrome (Modo Desenvolvedor)
+
+1. Baixe ou clone este projeto.
+2. Abra o Chrome em `chrome://extensions`.
+3. Ative `Modo do desenvolvedor`.
+4. Clique em `Carregar sem compactacao`.
+5. Selecione a pasta raiz do projeto.
+
+### Configuracao Inicial
+
+1. Clique no icone da extensao no Chrome.
+2. Abra a aba `Perfil`.
+3. Cadastre suas habilidades.
+4. Selecione sua area principal.
+5. Defina orcamento minimo e moeda (opcional).
+6. Adicione palavras-chave/cargo para busca mais assertiva (opcional).
+7. Adicione palavras bloqueadas para excluir titulos indesejados (opcional).
+8. Marque as plataformas que deseja monitorar.
+9. Ajuste a frequencia de busca.
+10. Clique em `Salvar`.
+
+### Como Funciona o Match
+
+- As vagas sao normalizadas para um formato unico.
+- O score principal usa a visao da vaga:
+  `(habilidades suas que batem com a vaga / total de habilidades exigidas pela vaga) * 100`.
+- Quando a vaga nao traz habilidades estruturadas, o sistema tenta inferir habilidades pela descricao e titulo.
+- Para vagas enriquecidas e esparsas, o score usa uma regra conservadora para evitar inflacao artificial.
+- O filtro final considera combinacao de score minimo dinamico e quantidade minima de matches.
+
+### Fluxo de Filtragem
+
+1. Valida se a plataforma esta habilitada.
+2. Remove vagas com palavras bloqueadas no titulo.
+3. Aplica filtro de palavras-chave/cargo (quando configurado).
+4. Aplica orcamento minimo (quando houver valor de vaga).
+5. Calcula matches e score.
+6. Remove vagas abaixo dos limiares minimos.
+7. Deduplica resultados repetidos.
+8. Ordena por score (maior para menor).
+
+### Curriculo Inteligente (Aba Curriculo)
+
+- Importa PDF ou DOCX.
+- Extrai habilidades de forma controlada para evitar ruido.
+- Usa catalogo de termos e sinonimos para reduzir falsos positivos.
+- Permite analisar uma vaga e sugerir ajustes de palavras-chave para o curriculo.
+
+### Screenshots
+
+As imagens abaixo correspondem aos 3 screenshots enviados (Vagas, Perfil e Curriculo). Coloque os arquivos em docs/screenshots/ com os nomes abaixo para exibicao automatica no README.
+
+#### 1) Aba Vagas - disparo manual de busca
+
+![Aba Vagas: botao Buscar agora e status da ultima busca](docs/screenshots/01-vagas.png)
+
+Legenda: tela principal para iniciar uma varredura imediata.
+Como funciona: ao clicar em `Buscar agora`, a extensao coleta vagas nas plataformas habilitadas, aplica filtros e atualiza o total encontrado.
+
+#### 2) Aba Perfil - configuracao dos filtros
+
+![Aba Perfil: habilidades, area, orcamento, palavras-chave, bloqueios e plataformas](docs/screenshots/02-perfil.png)
+
+Legenda: painel de personalizacao de criterios de busca.
+Como funciona: voce define o que deseja encontrar e o que deve ser ignorado. Esses dados alimentam o calculo de match e o filtro das vagas.
+
+#### 3) Aba Curriculo - importacao e otimizacao
+
+![Aba Curriculo: importacao de arquivo e analise antes/depois](docs/screenshots/03-curriculo.png)
+
+Legenda: modulo de importacao de curriculo e analise de aderencia.
+Como funciona: apos importar o curriculo, selecione uma vaga para comparar `Antes` e `Depois`, visualizar `Match de skills da vaga` e baixar uma versao otimizada.
+
+### Notificacoes
+
+- Apenas vagas novas e aprovadas no filtro geram notificacao.
+- O badge da extensao mostra a quantidade de novas vagas no ultimo ciclo.
+
+### Solucao de Problemas
+
+#### Nao atualiza vagas
+
+1. Abra `chrome://extensions`.
+2. Clique em `Recarregar` na extensao Workaholic.
+3. Volte ao popup e clique em `Buscar agora`.
+
+#### Erro de service worker
+
+Recarregue a extensao em `chrome://extensions`. Se persistir, abra `Erros` e verifique o stack trace mais recente.
+
+#### Poucas vagas com match
+
+- Revise suas habilidades no perfil.
+- Reduza restricoes em palavras-chave/cargo e palavras bloqueadas.
+- Confirme se as plataformas desejadas estao ativas.
+- Execute uma nova busca manual para validar o ajuste.
+
+### Privacidade
+
+- O filtro e o processamento sao locais.
+- Nao ha backend externo obrigatorio para logica de matching.
+- Perfil e estado das vagas ficam no storage da extensao Chrome.
+
+### Desenvolvimento
+
+- Executar testes: `npm test`
+- Cobertura de testes: `npm run test:coverage`
+- Pastas principais:
+  - `background/` orquestracao e agendamento
+  - `popup/` interface da extensao
+  - `parsers/` parsers HTML por plataforma
+  - `scrapers/` content scripts por plataforma
+  - `shared/` normalizacao, filtro e storage
+  - `tests/` testes automatizados e fixtures
+
+### Licenca
+
+MIT
+
+---
+
+## English
+
+### Features
+
+- Fetches jobs from multiple platforms.
+- Applies profile-based filters: skills, keywords/role, blocked words, minimum budget, and enabled platforms.
+- Calculates a match score based on job-required skills.
+- Enriches low-metadata jobs by extracting skills from title and description.
+- Removes duplicate jobs from the same cycle.
+- Notifies only new jobs that passed filtering.
+- Runs automatic background scans at the configured interval.
+
+### Supported Platforms
+
+- Upwork
+- Workana
+- 99Freelas
+- LinkedIn
+- Indeed (BR)
+- Gupy
+
+### Install in Chrome (Developer Mode)
 
 1. Download or clone this project.
-2. Open Chrome and go to `chrome://extensions`.
+2. Open Chrome at `chrome://extensions`.
 3. Enable `Developer mode`.
 4. Click `Load unpacked`.
-5. Select this project folder.
+5. Select the project root folder.
 
-Notes:
+### First-Time Setup
 
-- If your local structure has an `extension/` wrapper folder, select that folder.
-- In the current repository layout, load the project root.
-
-## First-Time Setup
-
-1. Click the Workaholic icon in Chrome.
+1. Click the extension icon in Chrome.
 2. Open the `Perfil` tab.
 3. Add your skills.
-4. Choose your area.
+4. Select your main area.
 5. Set minimum budget and currency (optional).
-6. Add blacklist terms (optional).
-7. Enable the platforms you want to monitor.
-8. Choose `Frequência de busca` (default is 1 minute).
-9. Click `Salvar`.
+6. Add keywords/role for more precise matching (optional).
+7. Add blocked words to exclude unwanted titles (optional).
+8. Enable the platforms you want to monitor.
+9. Set the search frequency.
+10. Click `Salvar`.
 
-## How to Use
+### How Matching Works
 
-1. Open the `Vagas` tab.
-2. Click `Buscar agora` for an immediate scan.
-3. Review the job cards:
-	 - clickable title
-	 - platform badge
-	 - match score
-	 - budget (when available)
-	 - posted date
-4. Keep Chrome open to allow automatic background scans.
+- Jobs are normalized to a single schema.
+- Main score uses the job perspective:
+  `(your matched skills / total skills required by the job) * 100`.
+- When a job has no structured skills, the system infers skills from title and description.
+- For sparse enriched jobs, a conservative score rule is applied to avoid artificial inflation.
+- Final filtering uses a combination of dynamic minimum score and minimum match count.
 
-## Notifications and Matching Rules
+### Filtering Flow
 
-- Jobs are normalized into a single schema.
-- Jobs are filtered in this order:
-	- site enabled
-	- blacklist exclusion
-	- minimum budget
-	- score threshold (minimum 40)
-- Only unseen matching jobs trigger notifications.
-- The extension icon badge shows the number of new jobs found in the latest cycle.
+1. Check whether the platform is enabled.
+2. Remove jobs with blocked words in the title.
+3. Apply keywords/role filter (when configured).
+4. Apply minimum budget filter (when job budget exists).
+5. Compute matches and score.
+6. Remove jobs below thresholds.
+7. Deduplicate repeated results.
+8. Sort by score (highest first).
 
-## Troubleshooting
+### Smart Resume (Curriculo Tab)
 
-### Extension does not update jobs
+- Imports PDF or DOCX.
+- Extracts skills with controlled filtering to reduce noise.
+- Uses a synonym and term catalog to reduce false positives.
+- Lets you analyze a selected job and suggest resume keyword improvements.
+
+### Screenshots
+
+The images below are the 3 provided screenshots (Jobs, Profile, Resume). Save them to docs/screenshots/ with the filenames below to render them automatically in this README.
+
+#### 1) Jobs tab - manual scan trigger
+
+![Jobs tab: Search now button and last search status](docs/screenshots/01-vagas.png)
+
+Caption: main screen for immediate scan execution.
+How it works: click `Buscar agora` to fetch jobs from enabled platforms, apply filters, and refresh totals.
+
+#### 2) Profile tab - filters configuration
+
+![Profile tab: skills, area, budget, keywords, blocked words, and platforms](docs/screenshots/02-perfil.png)
+
+Caption: profile panel to tune your search criteria.
+How it works: define what you want to find and what should be ignored. These settings drive match scoring and job filtering.
+
+#### 3) Resume tab - import and optimization
+
+![Resume tab: file import and before/after analysis](docs/screenshots/03-curriculo.png)
+
+Caption: resume import and fit analysis module.
+How it works: after importing your resume, select a job to compare `Antes` and `Depois`, inspect `Match de skills da vaga`, and download an optimized version.
+
+### Notifications
+
+- Only new jobs that pass filtering trigger notifications.
+- The extension badge shows the number of new jobs in the latest cycle.
+
+### Troubleshooting
+
+#### Jobs are not updating
 
 1. Open `chrome://extensions`.
 2. Click `Reload` on Workaholic.
 3. Open the popup and click `Buscar agora`.
 
-### Service worker registration failed
+#### Service worker error
 
-Reload the extension in `chrome://extensions`. If the error persists, open `Errors` and check the latest stack trace.
+Reload the extension in `chrome://extensions`. If it persists, open `Errors` and inspect the latest stack trace.
 
-### No jobs found
+#### Too few matched jobs
 
-- Confirm your selected sites are enabled in `Perfil`.
-- Remove overly strict filters (skills, blacklist, budget).
-- Use `Buscar agora` to force a new cycle.
+- Review your profile skills.
+- Reduce strict keyword/role and blocked word constraints.
+- Confirm target platforms are enabled.
+- Run a manual search to validate changes.
 
-## Privacy
+### Privacy
 
-- Filtering is local.
+- Filtering and processing run locally.
 - No external backend is required for matching logic.
 - Profile and job state are stored in Chrome extension storage.
 
-## For Developers
+### Development
 
-- Run tests:
-	- `npm test`
-	- `npm run test:coverage`
-- Core directories:
-	- `background/` background scheduling and orchestration
-	- `popup/` user interface
-	- `parsers/` pure HTML parsers per platform
-	- `scrapers/` content scripts per platform
-	- `shared/` normalization, filtering, and storage
-	- `tests/` automated tests and fixtures
+- Run tests: `npm test`
+- Coverage: `npm run test:coverage`
+- Main folders:
+  - `background/` scheduling and orchestration
+  - `popup/` extension UI
+  - `parsers/` pure HTML parsers by platform
+  - `scrapers/` platform content scripts
+  - `shared/` normalization, filtering, and storage
+  - `tests/` automated tests and fixtures
 
-## License
+### License
 
 MIT
