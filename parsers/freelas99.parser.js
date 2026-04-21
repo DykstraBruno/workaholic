@@ -14,11 +14,12 @@ const SELECTORS = {
     'ul li',
   ],
   title: [
-    'h1 a[href*="/project/"]',
     'h1 a',
     'h2 a',
-    '[data-test="project-title"] a',
     'h3 a',
+    '[data-test="project-title"] a',
+    'a[href*="/projeto/"]',
+    'a[href*="/project/"]',
   ],
   description: [
     '[data-test="project-description"]',
@@ -139,7 +140,7 @@ function parseFreelas99(html) {
       const url = toAbsoluteUrl(href, 'https://www.99freelas.com.br');
 
       // Ignore unrelated list items (pagination, side widgets, etc.).
-      if (!url.includes('/project/')) return null;
+      if (!url || (!url.includes('/project/') && !url.includes('/projeto/'))) return null;
 
       const postedAttr = firstAttr(card, SELECTORS.postedAt, 'datetime');
       const postedText = postedAttr || firstText(card, SELECTORS.postedAt);

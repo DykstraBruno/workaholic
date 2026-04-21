@@ -18,6 +18,7 @@
     "https://www.99freelas.com.br/*",
     "https://www.linkedin.com/*",
     "https://br.indeed.com/*",
+    "https://*.gupy.io/*",
     "https://www.gupy.io/*",
     "https://portal.gupy.io/*"
   ],
@@ -52,9 +53,14 @@
         "https://www.99freelas.com.br/*",
         "https://www.linkedin.com/*",
         "https://br.indeed.com/*",
+        "https://*.gupy.io/*",
         "https://www.gupy.io/*",
         "https://portal.gupy.io/*"
       ]
+    },
+    {
+      "resources": ["libs/pdf.worker.min.js"],
+      "matches": ["<all_urls>"]
     }
   ]
 }

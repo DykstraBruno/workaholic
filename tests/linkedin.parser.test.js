@@ -60,4 +60,37 @@ describe('parseLinkedIn', () => {
     expect(jobs[1].title).toBe('Data Analyst');
     expect(jobs[2].title).toBe('Product Copywriter');
   });
+
+  test('extracts title and url when h3 title and full-link are separated', () => {
+    const html = `
+      <ul>
+        <li class="base-card" data-job-id="42">
+          <h3 class="base-search-card__title">Java Backend Engineer</h3>
+          <a class="base-card__full-link" href="/jobs/view/42">Abrir vaga</a>
+          <div class="base-search-card__snippet">Spring Boot, AWS e microservicos.</div>
+        </li>
+      </ul>
+    `;
+
+    const jobs = parseLinkedIn(html);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0].title).toBe('Java Backend Engineer');
+    expect(jobs[0].url).toBe('https://www.linkedin.com/jobs/view/42');
+    expect(jobs[0].description).toContain('Spring Boot');
+  });
+
+  test('collapses duplicated title prefix in malformed cards', () => {
+    const html = `
+      <ul>
+        <li class="base-card" data-job-id="43">
+          <a class="base-card__full-link" href="/jobs/view/43">Python Developer Python Developer with verification</a>
+          <p>Remote role focused on backend services.</p>
+        </li>
+      </ul>
+    `;
+
+    const jobs = parseLinkedIn(html);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0].title).toBe('Python Developer');
+  });
 });
