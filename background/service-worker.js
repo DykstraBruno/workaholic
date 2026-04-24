@@ -1,10 +1,18 @@
 'use strict';
 
-importScripts(
-	'../shared/storage.js',
-	'../shared/normalizer.js',
-	'../shared/filter.js',
-);
+const SHARED_SCRIPT_PATHS = [
+	'shared/storage.js',
+	'shared/normalizer.js',
+	'shared/filter.js',
+];
+
+for (const scriptPath of SHARED_SCRIPT_PATHS) {
+	const scriptUrl = (typeof chrome !== 'undefined' && chrome?.runtime?.getURL)
+		? chrome.runtime.getURL(scriptPath)
+		: `../${scriptPath}`;
+
+	importScripts(scriptUrl);
+}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -524,6 +532,41 @@ function injectScraperAndCollect(tabId, site) {
 	});
 }
 
+async function collectJobsDirectlyFromDom(tabId, site) {
+	const parserGlobal = PARSER_GLOBALS[site];
+	if (!parserGlobal) return [];
+
+	try {
+		await ensureScraperBridge(tabId, site);
+
+		const [{ result }] = await chrome.scripting.executeScript({
+			target: { tabId },
+			func: (globalName) => {
+				try {
+					const parser = globalThis[globalName];
+					if (typeof parser !== 'function') {
+						return { ok: false, jobs: [] };
+					}
+
+					const html = document.documentElement?.outerHTML || document.body?.innerHTML || '';
+					const parsed = parser(html);
+					return {
+						ok: true,
+						jobs: Array.isArray(parsed) ? parsed : [],
+					};
+				} catch {
+					return { ok: false, jobs: [] };
+				}
+			},
+			args: [parserGlobal],
+		});
+
+		return Array.isArray(result?.jobs) ? result.jobs : [];
+	} catch {
+		return [];
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Per-site execution
 // ---------------------------------------------------------------------------
@@ -534,10 +577,24 @@ async function scrapeSiteInTab(tabId, site, profile) {
 		if (await siteRequiresLogin(tabId, site)) {
 			return { site, jobs: [], failed: false, loginRequired: true };
 		}
-		const jobs = await injectScraperAndCollect(tabId, site);
-		return { site, jobs, failed: false, loginRequired: false };
+
+		try {
+			const jobs = await injectScraperAndCollect(tabId, site);
+			return { site, jobs, failed: false, loginRequired: false };
+		} catch {
+			// Fallback: if bridge messaging fails/times out, parse directly from DOM.
+			const fallbackJobs = await collectJobsDirectlyFromDom(tabId, site);
+			return { site, jobs: fallbackJobs, failed: false, loginRequired: false };
+		}
 	} catch {
-		return { site, jobs: [], failed: true, loginRequired: false };
+		// Last-resort fallback for transient navigation/load errors.
+		const loginRequired = await siteRequiresLogin(tabId, site).catch(() => false);
+		if (loginRequired) {
+			return { site, jobs: [], failed: false, loginRequired: true };
+		}
+
+		const fallbackJobs = await collectJobsDirectlyFromDom(tabId, site);
+		return { site, jobs: fallbackJobs, failed: false, loginRequired: false };
 	}
 }
 

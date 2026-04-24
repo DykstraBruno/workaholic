@@ -1,0 +1,64 @@
+% resume-template-parametrized.tex
+% Template LaTeX com placeholders para automação Node.js
+
+\documentclass[a4paper,10pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[portuguese]{babel}
+\usepackage{geometry}
+\usepackage{parskip}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{bookmark}
+\usepackage{xurl}
+\geometry{top=1.5cm, bottom=1.5cm, left=1.5cm, right=1.5cm}
+\setcounter{secnumdepth}{0}
+\setlist[itemize]{leftmargin=0.75em, itemsep=0.2em, topsep=0.25em, parsep=0em, partopsep=0em}
+\pagestyle{empty}
+\hypersetup{
+	pdftitle={CV {{NOME}}},
+	pdfauthor={{{NOME}}},
+	colorlinks=true,
+	linkcolor=black,
+	urlcolor=black,
+	citecolor=black,
+	bookmarksdepth=2
+}
+\titleformat{\section}{\Large\bfseries}{}{0em}{}[\titlerule\vspace{0.5ex}]
+\titleformat{\subsection}{\normalsize\bfseries}{}{0em}{}
+\titlespacing*{\subsection}{0pt}{0.35em}{0.15em}
+\newcounter{cventry}
+\newcommand{\cventry}[4]{%
+	\refstepcounter{cventry}%
+	\phantomsection%
+	\pdfbookmark[2]{#1}{cventry-\thecventry}%
+	\noindent\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}X >{\raggedleft\arraybackslash}X@{}}
+	\textbf{#1} & #2 \\
+	\textit{#3} & \textit{#4} \\
+	\end{tabularx}
+}
+\begin{document}
+\begin{center}
+	{\LARGE \textbf{{{NOME}}}} \\
+	[0.1cm]
+	{{CIDADE}}, {{ESTADO}} {\textbullet}
+	\href{mailto:{{EMAIL}}}{{{EMAIL}}} {\textbullet}
+	\href{https://linkedin.com/in/{{LINKEDIN}}}{linkedin.com/in/{{LINKEDIN}}} {\textbullet}
+	\href{https://github.com/{{GITHUB}}}{github.com/{{GITHUB}}}
+\end{center}
+\section{Atividades de Liderança}
+{{LIDERANCA}}
+\section{Experiência}
+{{EXPERIENCIAS}}
+\section{Habilidades}
+\begin{itemize}
+	\item \textbf{Técnicas:} {{HABILIDADES_TECNICAS}}
+	\item \textbf{Idiomas:} {{IDIOMAS}}
+\end{itemize}
+\section{Educação}
+{{EDUCACAO}}
+\end{document}

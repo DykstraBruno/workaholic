@@ -1,0 +1,13 @@
+{
+  "nome": "Seu Nome",
+  "cidade": "Cidade",
+  "estado": "Estado",
+  "email": "seu.email@exemplo.com",
+  "linkedin": "usuario",
+  "github": "usuario",
+  "lideranca": "\\cventry{Nome da Empresa/Organização}{Localização}{Seu Cargo/Posição}{Data de Início - Data de Término}\\begin{itemize}\\item Exemplo de liderança.\\end{itemize}",
+  "experiencias": "\\cventry{Empresa}{Local}{Cargo}{Data}\\begin{itemize}\\item Exemplo de experiência.\\end{itemize}",
+  "habilidades_tecnicas": "JavaScript, Node.js, LaTeX, ...",
+  "idiomas": "Português (Nativo), Inglês (Avançado)",
+  "educacao": "\\cventry{Universidade}{Local}{Curso}{Data}"
+}
