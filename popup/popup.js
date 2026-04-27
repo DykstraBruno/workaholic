@@ -1437,21 +1437,20 @@ async function extractTextFromDOCX(file) {
   return result.value;
 }
 
-/**
- * Generates and downloads an ATS-friendly PDF from plain text.
- * @param {string} optimizedText
- * @param {string} filename
- */
-function downloadAtsFriendlyPDF(optimizedText, filename) {
-  const jsPDFCtor = window?.jspdf?.jsPDF;
-  if (!jsPDFCtor) {
+async function downloadAtsFriendlyPDF(optimizedText, filename) {
+  const pdfLib = window?.PDFLib;
+  if (!pdfLib?.PDFDocument || !pdfLib?.StandardFonts) {
     throw new Error('Biblioteca de PDF nao carregada. Recarregue a extensao.');
   }
 
-  const doc = new jsPDFCtor({ unit: 'pt', format: 'a4' });
+  const { PDFDocument, StandardFonts, rgb } = pdfLib;
+  const pdfDoc = await PDFDocument.create();
+  const normalFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const pageWidth = 595.28;
+  const pageHeight = 841.89;
   const margin = 48;
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
   const maxWidth = pageWidth - (margin * 2);
 
   const lines = String(optimizedText || '')
@@ -1470,61 +1469,49 @@ function downloadAtsFriendlyPDF(optimizedText, filename) {
     return false;
   };
 
+  let page = pdfDoc.addPage([pageWidth, pageHeight]);
+  let y = pageHeight - margin;
+
   const drawWrapped = (text, options = {}) => {
-    const {
-      size = 11,
-      style = 'normal',
-      color = [0, 0, 0],
-      gap = 15,
-      x = margin,
-      width = maxWidth,
-    } = options;
-
-    doc.setFont('helvetica', style);
-    doc.setFontSize(size);
-    doc.setTextColor(color[0], color[1], color[2]);
-
-    const wrapped = doc.splitTextToSize(text || ' ', width);
+    const { size = 11, font = normalFont, gap = 15, x = margin, width = maxWidth } = options;
+    const wrapped = wrapTextForPdf(font, text || ' ', size, width);
     for (const row of wrapped) {
-      if (y > pageHeight - margin) {
-        doc.addPage();
-        y = margin;
+      if (y < margin) {
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        y = pageHeight - margin;
       }
-      doc.text(row, x, y);
-      y += gap;
+      page.drawText(row, { x, y, size, font, color: rgb(0, 0, 0) });
+      y -= gap;
     }
-
     return wrapped.length;
   };
 
-  let y = margin;
-
-  // Header simples e limpo para ATS
-  drawWrapped(firstLine, { size: 18, style: 'bold', gap: 22 });
-  y += 4;
+  drawWrapped(firstLine, { size: 18, font: boldFont, gap: 22 });
+  y -= 4;
 
   for (const line of bodyLines) {
     if (!line) {
-      y += 6;
+      y -= 6;
       continue;
     }
 
     if (isHeading(line)) {
-      y += 4;
-      drawWrapped(line.toUpperCase(), { size: 12, style: 'bold', gap: 16 });
+      y -= 4;
+      drawWrapped(line.toUpperCase(), { size: 12, font: boldFont, gap: 16 });
       continue;
     }
 
     const bullet = /^[-•]/.test(line);
     const normalized = bullet ? line.replace(/^[-•]\s*/, '') : line;
     if (bullet) {
-      drawWrapped(`- ${normalized}`, { size: 11, style: 'normal', gap: 15 });
+      drawWrapped(`- ${normalized}`, { size: 11, font: normalFont, gap: 15 });
     } else {
-      drawWrapped(normalized, { size: 11, style: 'normal', gap: 15 });
+      drawWrapped(normalized, { size: 11, font: normalFont, gap: 15 });
     }
   }
 
-  doc.save(filename);
+  const bytes = await pdfDoc.save();
+  downloadBlob(new Blob([bytes], { type: 'application/pdf' }), filename);
 }
 
 function downloadBlob(blob, filename) {
@@ -2248,7 +2235,7 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error('Nao foi possivel gerar o conteudo otimizado do curriculo.');
       }
 
-      downloadAtsFriendlyPDF(outputText, `${baseName}.pdf`);
+      await downloadAtsFriendlyPDF(outputText, `${baseName}.pdf`);
     } catch (error) {
       console.error(error);
       window.alert(`Falha ao gerar curriculo otimizado: ${error.message}`);

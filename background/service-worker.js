@@ -1,18 +1,6 @@
 'use strict';
 
-const SHARED_SCRIPT_PATHS = [
-	'shared/storage.js',
-	'shared/normalizer.js',
-	'shared/filter.js',
-];
-
-for (const scriptPath of SHARED_SCRIPT_PATHS) {
-	const scriptUrl = (typeof chrome !== 'undefined' && chrome?.runtime?.getURL)
-		? chrome.runtime.getURL(scriptPath)
-		: `../${scriptPath}`;
-
-	importScripts(scriptUrl);
-}
+importScripts('../shared/storage.js', '../shared/normalizer.js', '../shared/filter.js');
 
 // ---------------------------------------------------------------------------
 // Constants
