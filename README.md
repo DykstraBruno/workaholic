@@ -33,9 +33,17 @@ Workaholic is a Chrome extension that monitors job and freelance platforms, appl
 4. Click `Load unpacked`.
 5. Select the project root folder.
 
+### Install in Firefox (Temporary Add-on)
+
+1. Download or clone this project.
+2. Open Firefox at `about:debugging`.
+3. Click "This Firefox" link.
+4. Click `Load Temporary Add-on`.
+5. Select the `manifest.json` file
+
 ### First-Time Setup
 
-1. Click the extension icon in Chrome.
+1. Click the extension icon.
 2. Open the `Perfil` tab.
 3. Add your skills.
 4. Select your main area.
@@ -75,8 +83,6 @@ Workaholic is a Chrome extension that monitors job and freelance platforms, appl
 
 ### Screenshots
 
-The images below are the 3 provided screenshots (Jobs, Profile, Resume). Save them to docs/screenshots/ with the filenames below to render them automatically in this README.
-
 #### 1) Jobs tab - manual scan trigger
 
 ![Jobs tab: Search now button and last search status](docs/screenshots/01-vagas.png)
@@ -113,7 +119,7 @@ How it works: after importing your resume, select a job to compare `Antes` and `
 
 #### Service worker error
 
-Reload the extension in `chrome://extensions`. If it persists, open `Errors` and inspect the latest stack trace.
+Reload the extension in `chrome://extensions` or `about:debugging#/runtime/this-firefox`. If it persists, click `Errors` on Chrome or `Inspect` on Firefox and inspect the latest stack trace.
 
 #### Too few matched jobs
 
@@ -175,9 +181,17 @@ MIT
 4. Clique em `Carregar sem compactacao`.
 5. Selecione a pasta raiz do projeto.
 
+### Instalacao no Firefox (Extensão temporária)
+
+1. Baixe ou clone este projeto.
+2. Abra o Firefox em `about:debugging`.
+3. Click no link `Este Firefox`.
+4. Clique `Carregar extensão temporária…`.
+5. Selecione o arquivo`manifest.json` da raíz do projeto.
+
 ### Configuracao Inicial
 
-1. Clique no icone da extensao no Chrome.
+1. Clique no icone da extensao.
 2. Abra a aba `Perfil`.
 3. Cadastre suas habilidades.
 4. Selecione sua area principal.
@@ -217,8 +231,6 @@ MIT
 
 ### Screenshots
 
-As imagens abaixo correspondem aos 3 screenshots enviados (Vagas, Perfil e Curriculo). Coloque os arquivos em docs/screenshots/ com os nomes abaixo para exibicao automatica no README.
-
 #### 1) Aba Vagas - disparo manual de busca
 
 ![Aba Vagas: botao Buscar agora e status da ultima busca](docs/screenshots/01-vagas.png)
@@ -255,7 +267,7 @@ Como funciona: apos importar o curriculo, selecione uma vaga para comparar `Ante
 
 #### Erro de service worker
 
-Recarregue a extensao em `chrome://extensions`. Se persistir, abra `Erros` e verifique o stack trace mais recente.
+Recarregue a extensao em `chrome://extensions` ou `about:debugging#/runtime/this-firefox`. Se persistir, abra `Erros` no Chrome ou `about:debugging#/runtime/this-firefox` no Firefox e verifique o stack trace mais recente.
 
 #### Poucas vagas com match
 

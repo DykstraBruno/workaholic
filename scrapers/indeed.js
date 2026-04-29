@@ -8,7 +8,7 @@
     : ['[data-testid="jobsearch-SerpJobCard"]', '.job_seen_beacon', '.result'];
 
   function send(jobs) {
-    chrome.runtime.sendMessage({ site: 'indeed', jobs: Array.isArray(jobs) ? jobs : [] });
+    browser.runtime.sendMessage({ site: 'indeed', jobs: Array.isArray(jobs) ? jobs : [] });
   }
 
   function safeParse(html) {

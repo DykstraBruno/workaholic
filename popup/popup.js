@@ -25,59 +25,27 @@ const SITE_LABELS = {
 };
 
 // ---------------------------------------------------------------------------
-// chrome.storage helpers
+// browser.storage helpers (Promise-based; works across Chrome/Firefox via polyfill)
 // ---------------------------------------------------------------------------
 
 function localGet(keys) {
-  return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
+  return browser.storage.local.get(keys);
 }
 
 function localSet(data) {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.set(data, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve();
-    });
-  });
+  return browser.storage.local.set(data);
 }
 
 function syncGet(keys) {
-  return new Promise((resolve, reject) => {
-    chrome.storage.sync.get(keys, (result) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve(result);
-    });
-  });
+  return browser.storage.sync.get(keys);
 }
 
 function syncSet(data) {
-  return new Promise((resolve, reject) => {
-    chrome.storage.sync.set(data, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve();
-    });
-  });
+  return browser.storage.sync.set(data);
 }
 
 function sendRuntimeMessage(payload) {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(payload, (response) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve(response);
-    });
-  });
+  return browser.runtime.sendMessage(payload);
 }
 
 async function saveProfileWithFallback(profile) {
@@ -730,21 +698,15 @@ function readableTextFromHtml(html) {
 }
 
 function createHiddenTab(url) {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.create({ url, active: false }, (tab) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve(tab);
-    });
-  });
+  return browser.tabs.create({ url, active: false });
 }
 
-function removeTab(tabId) {
-  return new Promise((resolve) => {
-    chrome.tabs.remove(tabId, () => resolve());
-  });
+async function removeTab(tabId) {
+  try {
+    await browser.tabs.remove(tabId);
+  } catch {
+    // Tab may already be closed.
+  }
 }
 
 function waitTabComplete(tabId, timeoutMs = DETAIL_TAB_TIMEOUT_MS) {
@@ -754,7 +716,7 @@ function waitTabComplete(tabId, timeoutMs = DETAIL_TAB_TIMEOUT_MS) {
     const timeoutId = setTimeout(() => {
       if (settled) return;
       settled = true;
-      chrome.tabs.onUpdated.removeListener(onUpdated);
+      browser.tabs.onUpdated.removeListener(onUpdated);
       reject(new Error('Timeout ao carregar pagina da vaga'));
     }, timeoutMs);
 
@@ -765,91 +727,77 @@ function waitTabComplete(tabId, timeoutMs = DETAIL_TAB_TIMEOUT_MS) {
       if (settled) return;
       settled = true;
       clearTimeout(timeoutId);
-      chrome.tabs.onUpdated.removeListener(onUpdated);
+      browser.tabs.onUpdated.removeListener(onUpdated);
       resolve();
     }
 
-    chrome.tabs.onUpdated.addListener(onUpdated);
+    browser.tabs.onUpdated.addListener(onUpdated);
   });
 }
 
-function extractRequirementsFromDom(tabId) {
-  return new Promise((resolve, reject) => {
-    chrome.scripting.executeScript(
-      {
-        target: { tabId },
-        files: ['shared/job-extractor.js'],
-      },
-      () => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
+async function extractRequirementsFromDom(tabId) {
+  await browser.scripting.executeScript({
+    target: { tabId },
+    files: [
+      'libs/browser-polyfill.js',
+      'shared/job-extractor.js',
+    ],
+  });
+
+  const results = await browser.scripting.executeScript({
+    target: { tabId },
+    func: async () => {
+      if (!window.__JobExtractor?.extractJobText) return '';
+
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      function fallbackRawExtraction() {
+        const rootCandidates = [
+          '[data-testid="job-description"]',
+          '[data-testid="job-details"]',
+          'main section',
+          'article',
+          'main',
+        ];
+
+        for (const selector of rootCandidates) {
+          const el = document.querySelector(selector);
+          if (!el) continue;
+          const txt = window.__JobExtractor.normalizeText(
+            window.__JobExtractor.extractTextFromNode(el)
+          );
+          if (txt && txt.length > 120) return txt;
         }
 
-        chrome.scripting.executeScript(
-          {
-            target: { tabId },
-            func: async () => {
-              if (!window.__JobExtractor?.extractJobText) return '';
-
-              const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-              function fallbackRawExtraction() {
-                const rootCandidates = [
-                  '[data-testid="job-description"]',
-                  '[data-testid="job-details"]',
-                  'main section',
-                  'article',
-                  'main',
-                ];
-
-                for (const selector of rootCandidates) {
-                  const el = document.querySelector(selector);
-                  if (!el) continue;
-                  const txt = window.__JobExtractor.normalizeText(
-                    window.__JobExtractor.extractTextFromNode(el)
-                  );
-                  if (txt && txt.length > 120) return txt;
-                }
-
-                const bodyText = window.__JobExtractor.normalizeText(
-                  window.__JobExtractor.extractTextFromNode(document.body)
-                );
-                return bodyText.length > 120 ? bodyText : '';
-              }
-
-              try {
-                let best = '';
-
-                // Gupy and LinkedIn pages often render description asynchronously.
-                for (let i = 0; i < 8; i++) {
-                  const extraction = await window.__JobExtractor.extractJobText(window.location.href);
-                  const text = extraction?.text || '';
-                  if (text.length > best.length) best = text;
-                  if (text.length > 400) return text;
-                  await sleep(700);
-                }
-
-                const raw = fallbackRawExtraction();
-                if (raw.length > best.length) best = raw;
-
-                return best;
-              } catch {
-                return '';
-              }
-            },
-          },
-          (results) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-              return;
-            }
-            resolve(results?.[0]?.result || '');
-          }
+        const bodyText = window.__JobExtractor.normalizeText(
+          window.__JobExtractor.extractTextFromNode(document.body)
         );
+        return bodyText.length > 120 ? bodyText : '';
       }
-    );
+
+      try {
+        let best = '';
+
+        // Gupy and LinkedIn pages often render description asynchronously.
+        for (let i = 0; i < 8; i++) {
+          const extraction = await window.__JobExtractor.extractJobText(window.location.href);
+          const text = extraction?.text || '';
+          if (text.length > best.length) best = text;
+          if (text.length > 400) return text;
+          await sleep(700);
+        }
+
+        const raw = fallbackRawExtraction();
+        if (raw.length > best.length) best = raw;
+
+        return best;
+      } catch {
+        return '';
+      }
+    },
   });
+
+  return results?.[0]?.result || '';
 }
 
 async function fetchRequirementTextFromJobUrl(jobUrl) {
