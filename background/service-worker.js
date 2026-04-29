@@ -97,26 +97,27 @@ function getSiteUrl(site) {
 	return new URL(SITE_URLS[site]);
 }
 
-function firstKeyword(profile) {
-	if (!Array.isArray(profile?.keywords)) return '';
-	for (const raw of profile.keywords) {
-		const value = String(raw || '').trim();
-		if (value) return value;
+function getProfileSearchTerms(profile) {
+	const terms = [];
+	if (Array.isArray(profile?.keywords)) {
+		for (const raw of profile.keywords) {
+			const value = String(raw || '').trim();
+			if (value) terms.push(value);
+		}
 	}
-	return '';
+	if (terms.length) return terms;
+
+	const area = String(profile?.area || '').trim().toLowerCase();
+	const fallback = AREA_TO_SEARCH_TERM[area] || area || '';
+	return [fallback];
 }
 
 function getProfileSearchTerm(profile) {
-	const keyword = firstKeyword(profile);
-	if (keyword) return keyword;
-
-	const area = String(profile?.area || '').trim().toLowerCase();
-	return AREA_TO_SEARCH_TERM[area] || area || '';
+	return getProfileSearchTerms(profile)[0] || '';
 }
 
-function buildSiteSearchUrl(site, profile) {
+function buildSiteSearchUrl(site, term) {
 	const url = new URL(SITE_URLS[site]);
-	const term = getProfileSearchTerm(profile);
 
 	if (!term) {
 		if (site === 'gupy') {
@@ -435,7 +436,7 @@ async function ensureAuthTab(site, profile) {
 		return currentFlow;
 	}
 
-	const tab = await createInteractiveTab(buildSiteSearchUrl(site, profile));
+	const tab = await createInteractiveTab(buildSiteSearchUrl(site, getProfileSearchTerm(profile)));
 	const flow = {
 		site,
 		tabId: tab.id,
@@ -559,31 +560,56 @@ async function collectJobsDirectlyFromDom(tabId, site) {
 // Per-site execution
 // ---------------------------------------------------------------------------
 
-async function scrapeSiteInTab(tabId, site, profile) {
+async function scrapeSiteForTerm(tabId, site, term) {
 	try {
-		await navigateTabAndWaitForLoad(tabId, buildSiteSearchUrl(site, profile));
+		await navigateTabAndWaitForLoad(tabId, buildSiteSearchUrl(site, term));
 		if (await siteRequiresLogin(tabId, site)) {
-			return { site, jobs: [], failed: false, loginRequired: true };
+			return { jobs: [], loginRequired: true };
 		}
 
 		try {
 			const jobs = await injectScraperAndCollect(tabId, site);
-			return { site, jobs, failed: false, loginRequired: false };
+			return { jobs, loginRequired: false };
 		} catch {
-			// Fallback: if bridge messaging fails/times out, parse directly from DOM.
 			const fallbackJobs = await collectJobsDirectlyFromDom(tabId, site);
-			return { site, jobs: fallbackJobs, failed: false, loginRequired: false };
+			return { jobs: fallbackJobs, loginRequired: false };
 		}
 	} catch {
-		// Last-resort fallback for transient navigation/load errors.
 		const loginRequired = await siteRequiresLogin(tabId, site).catch(() => false);
 		if (loginRequired) {
+			return { jobs: [], loginRequired: true };
+		}
+		const fallbackJobs = await collectJobsDirectlyFromDom(tabId, site);
+		return { jobs: fallbackJobs, loginRequired: false };
+	}
+}
+
+async function scrapeSiteInTab(tabId, site, profile) {
+	const terms = getProfileSearchTerms(profile);
+	const merged = [];
+	const seenUrls = new Set();
+	const seenTitles = new Set();
+
+	for (const term of terms) {
+		const result = await scrapeSiteForTerm(tabId, site, term);
+
+		if (result.loginRequired) {
+			// Login blocks all subsequent searches for this site this cycle.
 			return { site, jobs: [], failed: false, loginRequired: true };
 		}
 
-		const fallbackJobs = await collectJobsDirectlyFromDom(tabId, site);
-		return { site, jobs: fallbackJobs, failed: false, loginRequired: false };
+		for (const job of result.jobs || []) {
+			const urlKey = canonicalizeJobUrl(job?.url || '');
+			const titleKey = canonicalizeJobTitle(job?.title || '');
+			if (urlKey && seenUrls.has(urlKey)) continue;
+			if (titleKey && seenTitles.has(titleKey)) continue;
+			if (urlKey) seenUrls.add(urlKey);
+			if (titleKey) seenTitles.add(titleKey);
+			merged.push(job);
+		}
 	}
+
+	return { site, jobs: merged, failed: false, loginRequired: false };
 }
 
 // ---------------------------------------------------------------------------
