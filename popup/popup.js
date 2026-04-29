@@ -2076,6 +2076,15 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
+  // Open job links in a background tab so the popup remains open for further browsing.
+  document.getElementById('job-list')?.addEventListener('click', (event) => {
+    const link = event.target.closest('a.job-title');
+    if (!link) return;
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    chrome.tabs.create({ url: link.href, active: false });
+  });
+
   // Fetch now
   const fetchBtn = document.getElementById('fetch-now-btn');
   fetchBtn.addEventListener('click', async () => {
