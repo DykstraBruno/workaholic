@@ -2,3 +2,5 @@ node_modules/
 coverage/
 .DS_Store
 claude.md
+dist-cws/
+workaholic-cws.zip
