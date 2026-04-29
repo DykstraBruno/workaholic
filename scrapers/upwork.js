@@ -8,7 +8,7 @@
     : ['[data-test="JobTile"]', '.job-tile', '.up-card-section'];
 
   function send(jobs) {
-    chrome.runtime.sendMessage({ site: 'upwork', jobs: Array.isArray(jobs) ? jobs : [] });
+    browser.runtime.sendMessage({ site: 'upwork', jobs: Array.isArray(jobs) ? jobs : [] });
   }
 
   function safeParse(html) {

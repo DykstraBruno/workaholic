@@ -8,7 +8,7 @@
     : ['[data-test="project-card"]', '.project-item', '.project'];
 
   function send(jobs) {
-    chrome.runtime.sendMessage({ site: 'freelas99', jobs: Array.isArray(jobs) ? jobs : [] });
+    browser.runtime.sendMessage({ site: 'freelas99', jobs: Array.isArray(jobs) ? jobs : [] });
   }
 
   function safeParse(html) {

@@ -90,7 +90,7 @@
 		return Array.isArray(jobs) ? jobs : [];
 	}
 
-	chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+	browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 		if (message?.type !== 'SCRAPE_SITE') {
 			return;
 		}
@@ -100,10 +100,10 @@
 		(async () => {
 			try {
 				const jobs = await collectJobs(site);
-				chrome.runtime.sendMessage({ site, jobs });
+				browser.runtime.sendMessage({ site, jobs });
 			} catch (err) {
 				console.error(`[Content Script] Falha ao coletar ${site}:`, err);
-				chrome.runtime.sendMessage({ site, jobs: [] });
+				browser.runtime.sendMessage({ site, jobs: [] });
 			}
 		})();
 

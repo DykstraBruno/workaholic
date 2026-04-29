@@ -8,7 +8,7 @@
     : ['[data-test="project-card"]', '.project-item', '.project-card'];
 
   function send(jobs) {
-    chrome.runtime.sendMessage({ site: 'workana', jobs: Array.isArray(jobs) ? jobs : [] });
+    browser.runtime.sendMessage({ site: 'workana', jobs: Array.isArray(jobs) ? jobs : [] });
   }
 
   function safeParse(html) {

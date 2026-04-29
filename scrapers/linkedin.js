@@ -9,7 +9,7 @@
   const TIMEOUT_MS = 15_000;
 
   function send(jobs) {
-    chrome.runtime.sendMessage({ site: 'linkedin', jobs: Array.isArray(jobs) ? jobs : [] });
+    browser.runtime.sendMessage({ site: 'linkedin', jobs: Array.isArray(jobs) ? jobs : [] });
   }
 
   function safeParse(html) {
