@@ -11,9 +11,180 @@ const KEYS = {
   LAST_FETCH:       'lastFetch',
   LAST_DIAGNOSTICS: 'lastFetchDiagnostics',
   HEALTH_PREFIX:    'health_',
+  LANG:             'lang',
+  APPLIED_JOBS:     'appliedJobs',
 };
 
 const SITES = ['upwork', 'workana', 'freelas99', 'linkedin', 'indeed', 'gupy'];
+
+// ---------------------------------------------------------------------------
+// Internationalization
+// ---------------------------------------------------------------------------
+
+let currentLang = 'pt';
+
+// Applied jobs — persisted Set of job URLs the user has applied to
+let appliedJobs = new Set();
+
+/* eslint-disable object-curly-newline */
+const TRANSLATIONS = {
+  pt: {
+    tabJobs: 'Vagas', tabProfile: 'Perfil', tabResume: 'Currículo',
+    fetchNow: 'Buscar agora', fetching: 'Buscando…',
+    emptyState: 'Nenhuma vaga encontrada. Clique em "Buscar agora" para atualizar.',
+    languageLabel: 'Idioma',
+    lastFetchPrefix: (ago) => `Última busca: ${ago}`,
+    scraperBroken: (site) => `⚠ Scraper do ${site} pode estar quebrado`,
+    diagTitle: 'Diagnóstico da última busca',
+    diagCapt: 'capturadas', diagFilter: 'após filtro',
+    diagSkills: 'Skills no perfil', diagLogin: 'login', diagFail: 'falha',
+    diagRaw: 'brutas', diagMatch: 'match',
+    skillsLabel: 'Habilidades', skillsPlaceholder: 'ex: react, python…',
+    addBtn: 'Adicionar', importFromResume: 'Importar do currículo',
+    areaLabel: 'Área', areaDevelopment: 'Desenvolvimento', areaDesign: 'Design',
+    areaMarketing: 'Marketing', areaWriting: 'Redação', areaData: 'Dados', areaMobile: 'Mobile',
+    budgetLabel: 'Orçamento mínimo',
+    keywordsLabel: 'Palavras-chave / Cargo', keywordsPlaceholder: 'ex: desenvolvedor, frontend…',
+    keywordsHint: 'Usa essas palavras para buscar vagas direto nos sites. Se vazio, usa a Área como termo base.',
+    blacklistLabel: 'Palavras bloqueadas', blacklistPlaceholder: 'ex: urgente, estágio…',
+    blacklistHint: 'Vagas com essas palavras no título são excluídas.',
+    platformsLabel: 'Plataformas', frequencyLabel: 'Frequência de busca',
+    freq1min: '1 minuto', freq30min: '30 minutos', freq1h: '1 hora',
+    freq3h: '3 horas', freq6h: '6 horas', freq1d: '1 vez por dia',
+    saveProfile: 'Salvar', profileSaved: 'Perfil salvo!', removeTag: 'Remover',
+    uploadHint: 'Arraste um PDF ou DOCX aqui,\nou clique para selecionar',
+    pickFile: 'Selecionar arquivo', jobForOptimize: 'Vaga para otimizar',
+    scoreBefore: 'Antes', scoreAfter: 'Depois',
+    skillMatchLabel: 'Match de skills da vaga',
+    missingForPerfect: 'Faltando para match perfeito',
+    missingInjected: 'Palavras-chave ausentes injetadas',
+    analyzeBtn: 'Analisar',
+    docxNote: 'DOCX: o resultado sera exportado em PDF com layout simplificado. Para preservar layout original, use um PDF de entrada.',
+    downloadBtn: 'Baixar currículo otimizado (PDF)',
+    noJobFound: '— Nenhuma vaga encontrada —',
+    noSkillsExtracted: 'Não foi possível extrair requisitos suficientes desta vaga para calcular o match de skills.',
+    skillsMatchSummary: (matched, total, score) => `${matched} de ${total} habilidades da vaga em match (${score}%).`,
+    noSkillsInResume: 'Nenhuma habilidade nova encontrada no currículo.',
+    skillsImported: (added) => `${added} habilidade${added > 1 ? 's' : ''} importada${added > 1 ? 's' : ''} e salva${added > 1 ? 's' : ''} no perfil.`,
+    importError: (msg) => `Erro ao importar currículo: ${msg}`,
+    fetchError: (msg) => `Erro na busca: ${msg}`,
+    fetchFailed: 'Falha ao executar a busca.',
+    loginRequired: (label) => `Login necessário no ${label}. A página foi aberta e a busca continuará automaticamente depois que você entrar.`,
+    noSkillsInProfile: 'Busca concluída. Foram capturadas vagas, mas seu perfil está sem skills. Abra a aba Perfil, adicione habilidades (ex: react, node, python) e clique em Buscar agora novamente.',
+    noJobsMatched: 'Busca concluída. Nenhuma vaga combinou com os filtros atuais.',
+    jobsFound: (count) => `Busca concluída. ${count} vaga${count > 1 ? 's' : ''} encontrada${count > 1 ? 's' : ''}.`,
+    generateError: 'Não foi possível gerar o conteúdo otimizado do currículo.',
+    downloadFail: (msg) => `Falha ao gerar currículo otimizado: ${msg}`,
+    unsupportedFormat: 'Formato não suportado. Use PDF ou DOCX.',
+    processingHint: 'processando…',
+    processingFile: (name) => `Processando ${name}...`,
+    justNow: 'agora mesmo',
+    minutesAgo: (n) => `há ${n} minuto${n > 1 ? 's' : ''}`,
+    hoursAgo: (n) => `há ${n} hora${n > 1 ? 's' : ''}`,
+    daysAgo: (n) => `há ${n} dia${n > 1 ? 's' : ''}`,
+    appliedMark: 'Marcar como candidatado',
+    appliedUnmark: 'Desmarcar candidatura',
+    appliedBadge: 'Candidatado',
+  },
+  en: {
+    tabJobs: 'Jobs', tabProfile: 'Profile', tabResume: 'Resume',
+    fetchNow: 'Fetch now', fetching: 'Fetching…',
+    emptyState: 'No jobs found. Click "Fetch now" to refresh.',
+    languageLabel: 'Language',
+    lastFetchPrefix: (ago) => `Last search: ${ago}`,
+    scraperBroken: (site) => `⚠ ${site} scraper may be broken`,
+    diagTitle: 'Last search diagnostics',
+    diagCapt: 'captured', diagFilter: 'after filter',
+    diagSkills: 'Profile skills', diagLogin: 'login', diagFail: 'failed',
+    diagRaw: 'raw', diagMatch: 'match',
+    skillsLabel: 'Skills', skillsPlaceholder: 'e.g. react, python…',
+    addBtn: 'Add', importFromResume: 'Import from resume',
+    areaLabel: 'Area', areaDevelopment: 'Development', areaDesign: 'Design',
+    areaMarketing: 'Marketing', areaWriting: 'Writing', areaData: 'Data', areaMobile: 'Mobile',
+    budgetLabel: 'Minimum budget',
+    keywordsLabel: 'Keywords / Job title', keywordsPlaceholder: 'e.g. developer, frontend…',
+    keywordsHint: 'These words are used to search for jobs on each site. If empty, the Area is used as the base term.',
+    blacklistLabel: 'Blocked words', blacklistPlaceholder: 'e.g. urgent, internship…',
+    blacklistHint: 'Jobs with these words in the title are excluded.',
+    platformsLabel: 'Platforms', frequencyLabel: 'Search frequency',
+    freq1min: '1 minute', freq30min: '30 minutes', freq1h: '1 hour',
+    freq3h: '3 hours', freq6h: '6 hours', freq1d: 'Once a day',
+    saveProfile: 'Save', profileSaved: 'Profile saved!', removeTag: 'Remove',
+    uploadHint: 'Drag a PDF or DOCX here,\nor click to select',
+    pickFile: 'Select file', jobForOptimize: 'Job to optimize for',
+    scoreBefore: 'Before', scoreAfter: 'After',
+    skillMatchLabel: 'Job skill match',
+    missingForPerfect: 'Missing for perfect match',
+    missingInjected: 'Injected missing keywords',
+    analyzeBtn: 'Analyze',
+    docxNote: 'DOCX: the result will be exported as a simplified PDF layout. To preserve the original layout, use a PDF input.',
+    downloadBtn: 'Download optimized resume (PDF)',
+    noJobFound: '— No jobs found —',
+    noSkillsExtracted: 'Could not extract enough requirements from this job to calculate skill match.',
+    skillsMatchSummary: (matched, total, score) => `${matched} of ${total} job skills matched (${score}%).`,
+    noSkillsInResume: 'No new skills found in the resume.',
+    skillsImported: (added) => `${added} skill${added > 1 ? 's' : ''} imported and saved to profile.`,
+    importError: (msg) => `Error importing resume: ${msg}`,
+    fetchError: (msg) => `Search error: ${msg}`,
+    fetchFailed: 'Failed to execute the search.',
+    loginRequired: (label) => `Login required on ${label}. The page has been opened — search will continue automatically after you log in.`,
+    noSkillsInProfile: 'Search complete. Jobs were found, but your profile has no skills. Open the Profile tab, add skills (e.g. react, node, python) and click Fetch now again.',
+    noJobsMatched: 'Search complete. No jobs matched the current filters.',
+    jobsFound: (count) => `Search complete. ${count} job${count > 1 ? 's' : ''} found.`,
+    generateError: 'Could not generate the optimized resume content.',
+    downloadFail: (msg) => `Failed to generate optimized resume: ${msg}`,
+    unsupportedFormat: 'Unsupported format. Use PDF or DOCX.',
+    processingHint: 'processing…',
+    processingFile: (name) => `Processing ${name}...`,
+    justNow: 'just now',
+    minutesAgo: (n) => `${n} minute${n > 1 ? 's' : ''} ago`,
+    hoursAgo: (n) => `${n} hour${n > 1 ? 's' : ''} ago`,
+    daysAgo: (n) => `${n} day${n > 1 ? 's' : ''} ago`,
+    appliedMark: 'Mark as applied',
+    appliedUnmark: 'Unmark application',
+    appliedBadge: 'Applied',
+  },
+};
+/* eslint-enable object-curly-newline */
+
+function t(key, ...args) {
+  const val = TRANSLATIONS[currentLang]?.[key] ?? TRANSLATIONS.pt[key];
+  if (typeof val === 'function') return val(...args);
+  return val ?? key;
+}
+
+function applyTranslations() {
+  const dict = TRANSLATIONS[currentLang];
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.dataset.i18n;
+    const val = dict[key];
+    if (typeof val === 'string') el.textContent = val;
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+    const key = el.dataset.i18nPlaceholder;
+    const val = dict[key];
+    if (typeof val === 'string') el.placeholder = val;
+  });
+
+  // Header lang button: show flag + code of the OTHER language
+  const langBtn = document.getElementById('lang-btn');
+  if (langBtn) {
+    if (currentLang === 'pt') {
+      langBtn.innerHTML = '<span class="lang-flag">🇺🇸</span> EN';
+      langBtn.setAttribute('aria-label', 'Switch to English');
+    } else {
+      langBtn.innerHTML = '<span class="lang-flag">🇧🇷</span> PT';
+      langBtn.setAttribute('aria-label', 'Mudar para Português');
+    }
+  }
+
+  // Profile lang toggle: highlight active option
+  document.querySelectorAll('.lang-toggle-opt').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.lang === currentLang);
+  });
+
+  document.documentElement.lang = currentLang === 'pt' ? 'pt-BR' : 'en';
+}
 
 const SITE_LABELS = {
   upwork:    'Upwork',
@@ -113,12 +284,12 @@ function formatTimeAgo(isoDate) {
   if (!isoDate) return null;
   const diff = Date.now() - new Date(isoDate).getTime();
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1)   return 'agora mesmo';
-  if (mins < 60)  return `há ${mins} minuto${mins > 1 ? 's' : ''}`;
+  if (mins < 1)   return t('justNow');
+  if (mins < 60)  return t('minutesAgo', mins);
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24)   return `há ${hrs} hora${hrs > 1 ? 's' : ''}`;
+  if (hrs < 24)   return t('hoursAgo', hrs);
   const days = Math.floor(hrs / 24);
-  return `há ${days} dia${days > 1 ? 's' : ''}`;
+  return t('daysAgo', days);
 }
 
 function formatDate(isoDate) {
@@ -1059,14 +1230,14 @@ function renderRequiredSkillsGap(gap) {
 
   if (!gap.total) {
     wrap.hidden = false;
-    summary.textContent = 'Nao foi possivel extrair requisitos suficientes desta vaga para calcular o match de skills.';
+    summary.textContent = t('noSkillsExtracted');
     missingWrap.hidden = true;
     missingTags.innerHTML = '';
     return;
   }
 
   wrap.hidden = false;
-  summary.textContent = `${gap.matchedCount} de ${gap.total} habilidades da vaga em match (${gap.score}%).`;
+  summary.textContent = t('skillsMatchSummary', gap.matchedCount, gap.total, gap.score);
 
   if (!gap.missing.length) {
     missingWrap.hidden = true;
@@ -1137,7 +1308,7 @@ async function loadJobsTab() {
 
   const timeAgo = formatTimeAgo(lastFetch);
   document.getElementById('last-fetch').textContent =
-    timeAgo ? `Última busca: ${timeAgo}` : 'Nenhuma busca realizada';
+    timeAgo ? t('lastFetchPrefix', timeAgo) : t('noFetchYet');
 
   await renderHealthWarnings();
   renderDiagnostics(diagnostics);
@@ -1156,7 +1327,7 @@ async function renderHealthWarnings() {
     if (health && health.consecutiveFailures >= 3) {
       const el = document.createElement('div');
       el.className = 'health-warning';
-      el.textContent = `⚠ Scraper do ${SITE_LABELS[site]} pode estar quebrado`;
+      el.textContent = t('scraperBroken', SITE_LABELS[site]);
       container.appendChild(el);
     }
   }
@@ -1171,22 +1342,22 @@ function renderDiagnostics(diagnostics) {
     return;
   }
 
-  const summary = `${diagnostics.totals?.rawJobs ?? 0} capturadas, ${diagnostics.totals?.matchedJobs ?? 0} apos filtro. Skills no perfil: ${diagnostics.profile?.skillsCount ?? 0}.`;
+  const summary = `${diagnostics.totals?.rawJobs ?? 0} ${t('diagCapt')}, ${diagnostics.totals?.matchedJobs ?? 0} ${t('diagFilter')}. ${t('diagSkills')}: ${diagnostics.profile?.skillsCount ?? 0}.`;
   const items = diagnostics.sites.map((site) => {
     let flag = '';
-    if (site.loginRequired) flag = '<span class="fetch-diagnostics-flag">login</span>';
-    else if (site.failed) flag = '<span class="fetch-diagnostics-flag">falha</span>';
+    if (site.loginRequired) flag = `<span class="fetch-diagnostics-flag">${t('diagLogin')}</span>`;
+    else if (site.failed) flag = `<span class="fetch-diagnostics-flag">${t('diagFail')}</span>`;
 
     return `
       <div class="fetch-diagnostics-item">
         <span class="fetch-diagnostics-site">${esc(site.label || site.site)}${flag}</span>
-        <span class="fetch-diagnostics-metrics">${site.rawJobs ?? 0} brutas / ${site.matchedJobs ?? 0} match</span>
+        <span class="fetch-diagnostics-metrics">${site.rawJobs ?? 0} ${t('diagRaw')} / ${site.matchedJobs ?? 0} ${t('diagMatch')}</span>
       </div>`;
   }).join('');
 
   container.hidden = false;
   container.innerHTML = `
-    <div class="fetch-diagnostics-title">Diagnostico da ultima busca</div>
+    <div class="fetch-diagnostics-title">${t('diagTitle')}</div>
     <div class="fetch-diagnostics-summary">${esc(summary)}</div>
     <div class="fetch-diagnostics-list">${items}</div>`;
 }
@@ -1198,7 +1369,10 @@ function renderJobs(jobs) {
   if (!jobs.length) {
     list.innerHTML  = '';
     list.hidden     = true;
-    if (empty) empty.hidden = false;
+    if (empty) {
+      empty.textContent = t('emptyState');
+      empty.hidden = false;
+    }
     return;
   }
 
@@ -1209,14 +1383,19 @@ function renderJobs(jobs) {
     const budget = formatBudget(job.budget);
     const date   = formatDate(job.postedAt);
 
+    const applied = appliedJobs.has(job.url);
     return `
-      <li class="job-card">
+      <li class="job-card${applied ? ' job-card--applied' : ''}" data-site="${esc(job.site)}" data-url="${esc(job.url)}">
         <div class="job-card-header">
           <a href="${esc(job.url)}" class="job-title" target="_blank" rel="noopener noreferrer">${esc(job.title)}</a>
-          <div class="job-badges">
-            <span class="badge badge-site badge-site--${esc(job.site)}">${esc(job.site)}</span>
-            <span class="badge badge-score ${scoreClass(score)}">${score}% match</span>
-          </div>
+          <button class="job-apply-btn${applied ? ' job-apply-btn--done' : ''}" title="${applied ? t('appliedUnmark') : t('appliedMark')}" aria-label="${applied ? t('appliedUnmark') : t('appliedMark')}" aria-pressed="${applied}">
+            ${applied ? '✓' : '○'}
+          </button>
+        </div>
+        <div class="job-badges">
+          <span class="badge badge-site badge-site--${esc(job.site)}">${esc(SITE_LABELS[job.site] ?? job.site)}</span>
+          <span class="badge badge-score ${scoreClass(score)}">${score}% ${t('diagMatch')}</span>
+          ${applied ? `<span class="badge badge-applied">${t('appliedBadge')}</span>` : ''}
         </div>
         <div class="job-card-footer">
           ${budget ? `<span class="job-budget">${esc(budget)}</span>` : ''}
@@ -1285,7 +1464,7 @@ function renderTags(containerId, items, onRemove) {
   container.innerHTML = items.map((item) => `
     <span class="tag">
       ${esc(item)}
-      <button class="tag-remove" data-value="${esc(item)}" aria-label="Remover ${esc(item)}">×</button>
+      <button class="tag-remove" data-value="${esc(item)}" aria-label="${t('removeTag')} ${esc(item)}">×</button>
     </span>`).join('');
 
   container.querySelectorAll('.tag-remove').forEach((btn) => {
@@ -1333,11 +1512,10 @@ async function saveProfile() {
   await saveProfileWithFallback(profile);
 
   const btn = document.getElementById('save-profile-btn');
-  const original = btn.textContent;
-  btn.textContent = 'Perfil salvo!';
+  btn.textContent = t('profileSaved');
   btn.classList.add('btn--success');
   setTimeout(() => {
-    btn.textContent = original;
+    btn.textContent = t('saveProfile');
     btn.classList.remove('btn--success');
   }, 2000);
 }
@@ -1896,7 +2074,7 @@ function populateJobSelect(jobs) {
   const select = document.getElementById('ats-job-select');
   select.innerHTML = jobs.length
     ? jobs.map((j, i) => `<option value="${i}">${esc(j.title)} (${esc(j.site)})</option>`).join('')
-    : '<option value="">— Nenhuma vaga encontrada —</option>';
+    : `<option value="">${t('noJobFound')}</option>`;
 }
 
 function showATSScores(before, after) {
@@ -2003,7 +2181,8 @@ async function handleResumeFile(file) {
 
   hint.hidden = true;
   name.hidden = false;
-  name.textContent = `📄 ${file.name} — processando…`;
+  name.textContent = `📄 ${file.name} — ${t('processingHint')}`;
+
 
   try {
     resumeOriginalFile  = file;
@@ -2018,7 +2197,7 @@ async function handleResumeFile(file) {
     } else if (file.name.toLowerCase().endsWith('.docx')) {
       resumeText = await extractTextFromDOCX(file);
     } else {
-      throw new Error('Formato não suportado. Use PDF ou DOCX.');
+      throw new Error(t('unsupportedFormat'));
     }
 
     name.textContent = `✓ ${file.name}`;
@@ -2031,7 +2210,7 @@ async function handleResumeFile(file) {
     document.getElementById('ats-download-btn').hidden = true;
     document.getElementById('ats-docx-note').hidden = true;
   } catch (err) {
-    name.textContent = `⚠ Erro: ${err.message}`;
+    name.textContent = `⚠ ${err.message}`;
     resumeReady = false;
   }
 }
@@ -2041,14 +2220,14 @@ async function importProfileSkillsFromResume(file) {
   const inputEl = document.getElementById('profile-resume-file-input');
 
   statusEl.hidden = false;
-  statusEl.textContent = `Processando ${file.name}...`;
+  statusEl.textContent = t('processingFile', file.name);
 
   try {
     const isPDF = file.name.toLowerCase().endsWith('.pdf');
     const isDOCX = file.name.toLowerCase().endsWith('.docx');
 
     if (!isPDF && !isDOCX) {
-      throw new Error('Formato nao suportado. Use PDF ou DOCX.');
+      throw new Error(t('unsupportedFormat'));
     }
 
     let text = '';
@@ -2069,7 +2248,7 @@ async function importProfileSkillsFromResume(file) {
 
     const added = profileSkills.length - previous.length;
     if (added <= 0) {
-      statusEl.textContent = 'Nenhuma habilidade nova encontrada no curriculo.';
+      statusEl.textContent = t('noSkillsInResume');
       inputEl.value = '';
       return;
     }
@@ -2077,11 +2256,54 @@ async function importProfileSkillsFromResume(file) {
     const existingProfile = await ensureProfileExists();
     await saveProfileWithFallback(buildProfileFromForm(existingProfile, { forceCurrentState: true }));
 
-    statusEl.textContent = `${added} habilidade${added > 1 ? 's' : ''} importada${added > 1 ? 's' : ''} e salva${added > 1 ? 's' : ''} no perfil.`;
+    statusEl.textContent = t('skillsImported', added);
   } catch (error) {
-    statusEl.textContent = `Erro ao importar curriculo: ${error.message}`;
+    statusEl.textContent = t('importError', error.message);
   } finally {
     inputEl.value = '';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Applied jobs — helpers
+// ---------------------------------------------------------------------------
+
+async function loadAppliedJobs() {
+  const result = await localGet(KEYS.APPLIED_JOBS);
+  appliedJobs = new Set(result[KEYS.APPLIED_JOBS] ?? []);
+}
+
+async function saveAppliedJobs() {
+  await localSet({ [KEYS.APPLIED_JOBS]: [...appliedJobs] });
+}
+
+async function toggleApplied(url, card) {
+  if (appliedJobs.has(url)) {
+    appliedJobs.delete(url);
+  } else {
+    appliedJobs.add(url);
+  }
+  await saveAppliedJobs();
+  const applied = appliedJobs.has(url);
+  card.classList.toggle('job-card--applied', applied);
+  const btn = card.querySelector('.job-apply-btn');
+  if (btn) {
+    btn.textContent    = applied ? '✓' : '○';
+    btn.classList.toggle('job-apply-btn--done', applied);
+    btn.setAttribute('aria-pressed', String(applied));
+    btn.title = applied ? t('appliedUnmark') : t('appliedMark');
+  }
+  const badgeApplied = card.querySelector('.badge-applied');
+  if (applied && !badgeApplied) {
+    const badgesEl = card.querySelector('.job-badges');
+    if (badgesEl) {
+      const span = document.createElement('span');
+      span.className   = 'badge badge-applied';
+      span.textContent = t('appliedBadge');
+      badgesEl.appendChild(span);
+    }
+  } else if (!applied && badgeApplied) {
+    badgeApplied.remove();
   }
 }
 
@@ -2090,25 +2312,48 @@ async function importProfileSkillsFromResume(file) {
 // ---------------------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Load language preference, apply translations, then init tabs
+  localGet(KEYS.LANG).then((result) => {
+    currentLang = result[KEYS.LANG] ?? 'pt';
+    applyTranslations();
+    loadAppliedJobs().then(() => loadJobsTab());
+    populateJobSelect(_resumeTabJobs);
+  });
+
   // Tab buttons
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
-  // Open job links in a background tab so the popup remains open for further browsing.
+  // Open job links in a background tab; auto-mark as applied on link click.
   document.getElementById('job-list')?.addEventListener('click', (event) => {
+    const card = event.target.closest('li.job-card');
+    if (!card) return;
+
+    // Toggle applied via check button
+    const applyBtn = event.target.closest('.job-apply-btn');
+    if (applyBtn) {
+      event.preventDefault();
+      toggleApplied(card.dataset.url, card);
+      return;
+    }
+
+    // Open link + auto-mark as applied
     const link = event.target.closest('a.job-title');
     if (!link) return;
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     chrome.tabs.create({ url: link.href, active: false });
+    if (!appliedJobs.has(card.dataset.url)) {
+      toggleApplied(card.dataset.url, card);
+    }
   });
 
   // Fetch now
   const fetchBtn = document.getElementById('fetch-now-btn');
   fetchBtn.addEventListener('click', async () => {
     fetchBtn.disabled    = true;
-    fetchBtn.textContent = 'Buscando…';
+    fetchBtn.textContent = t('fetching');
 
     try {
       const existingProfile = await ensureProfileExists();
@@ -2120,7 +2365,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await sendRuntimeMessage({ type: 'FETCH_NOW' });
 
       if (!response?.ok) {
-        throw new Error(response?.error || 'Falha ao executar a busca.');
+        throw new Error(response?.error || t('fetchFailed'));
       }
 
       const jobs = response.result?.jobs ?? [];
@@ -2128,26 +2373,26 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadJobsTab();
 
       if (auth?.required) {
-        setFetchStatus(`Login necessario no ${auth.label}. A pagina foi aberta e a busca continuara automaticamente depois que voce entrar.`, 'warning');
+        setFetchStatus(t('loginRequired', auth.label), 'warning');
         return;
       }
 
       if (!profile.skills?.length) {
-        setFetchStatus('Busca concluida. Foram capturadas vagas, mas seu perfil esta sem skills. Abra a aba Perfil, adicione habilidades (ex: react, node, python) e clique em Buscar agora novamente.', 'warning');
+        setFetchStatus(t('noSkillsInProfile'), 'warning');
         return;
       }
 
       if (!jobs.length) {
-        setFetchStatus('Busca concluida. Nenhuma vaga combinou com os filtros atuais.', 'warning');
+        setFetchStatus(t('noJobsMatched'), 'warning');
         return;
       }
 
-      setFetchStatus(`Busca concluida. ${jobs.length} vaga${jobs.length > 1 ? 's' : ''} encontrada${jobs.length > 1 ? 's' : ''}.`, 'success');
+      setFetchStatus(t('jobsFound', jobs.length), 'success');
     } catch (error) {
-      setFetchStatus(`Erro na busca: ${error.message}`, 'error');
+      setFetchStatus(t('fetchError', error.message), 'error');
     } finally {
       fetchBtn.disabled    = false;
-      fetchBtn.textContent = 'Buscar agora';
+      fetchBtn.textContent = t('fetchNow');
     }
   });
 
@@ -2260,7 +2505,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const baseOutputText = String(resumeOptimizedText || '').trim() || String(resumeText || '').trim();
       const outputText = normalizeResumeForAtsPdf(baseOutputText, resumeMissingKeywords);
       if (!outputText) {
-        throw new Error('Nao foi possivel gerar o conteudo otimizado do curriculo.');
+        throw new Error(t('generateError'));
       }
 
       if (resumeIsPDF && resumeOriginalBytes) {
@@ -2272,12 +2517,32 @@ document.addEventListener('DOMContentLoaded', () => {
       await downloadAtsFriendlyPDF(outputText, `${baseName}.pdf`);
     } catch (error) {
       console.error(error);
-      window.alert(`Falha ao gerar curriculo otimizado: ${error.message}`);
+      window.alert(t('downloadFail', error.message));
     }
+  });
+
+  // Language toggle — header button
+  document.getElementById('lang-btn').addEventListener('click', async () => {
+    currentLang = currentLang === 'pt' ? 'en' : 'pt';
+    await localSet({ [KEYS.LANG]: currentLang });
+    applyTranslations();
+    await loadJobsTab();
+    populateJobSelect(_resumeTabJobs);
+  });
+
+  // Language toggle — profile section buttons
+  document.querySelectorAll('.lang-toggle-opt').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (btn.dataset.lang === currentLang) return;
+      currentLang = btn.dataset.lang;
+      await localSet({ [KEYS.LANG]: currentLang });
+      applyTranslations();
+      await loadJobsTab();
+      populateJobSelect(_resumeTabJobs);
+    });
   });
 
   // Load default tab
   ensureProfileExists().catch(() => {});
   loadProfileTab().catch(() => {});
-  loadJobsTab();
 });
