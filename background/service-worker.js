@@ -564,23 +564,23 @@ async function scrapeSiteForTerm(tabId, site, term) {
 	try {
 		await navigateTabAndWaitForLoad(tabId, buildSiteSearchUrl(site, term));
 		if (await siteRequiresLogin(tabId, site)) {
-			return { jobs: [], loginRequired: true };
+			return { jobs: [], loginRequired: true, failed: false };
 		}
 
 		try {
 			const jobs = await injectScraperAndCollect(tabId, site);
-			return { jobs, loginRequired: false };
+			return { jobs, loginRequired: false, failed: false };
 		} catch {
 			const fallbackJobs = await collectJobsDirectlyFromDom(tabId, site);
-			return { jobs: fallbackJobs, loginRequired: false };
+			return { jobs: fallbackJobs, loginRequired: false, failed: fallbackJobs.length === 0 };
 		}
 	} catch {
 		const loginRequired = await siteRequiresLogin(tabId, site).catch(() => false);
 		if (loginRequired) {
-			return { jobs: [], loginRequired: true };
+			return { jobs: [], loginRequired: true, failed: false };
 		}
 		const fallbackJobs = await collectJobsDirectlyFromDom(tabId, site);
-		return { jobs: fallbackJobs, loginRequired: false };
+		return { jobs: fallbackJobs, loginRequired: false, failed: fallbackJobs.length === 0 };
 	}
 }
 
@@ -589,9 +589,11 @@ async function scrapeSiteInTab(tabId, site, profile) {
 	const merged = [];
 	const seenUrls = new Set();
 	const seenTitles = new Set();
+	let failed = false;
 
 	for (const term of terms) {
 		const result = await scrapeSiteForTerm(tabId, site, term);
+		failed = failed || Boolean(result.failed);
 
 		if (result.loginRequired) {
 			// Login blocks all subsequent searches for this site this cycle.
@@ -609,7 +611,7 @@ async function scrapeSiteInTab(tabId, site, profile) {
 		}
 	}
 
-	return { site, jobs: merged, failed: false, loginRequired: false };
+	return { site, jobs: merged, failed, loginRequired: false };
 }
 
 // ---------------------------------------------------------------------------

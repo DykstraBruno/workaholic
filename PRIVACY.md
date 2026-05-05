@@ -21,4 +21,4 @@ If this policy changes in the future, the updated version will be
 published at this URL.
 
 ## Contact
-brunodykstradev@gmail.com
+brunodykstra@gmail.com

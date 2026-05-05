@@ -104,6 +104,34 @@ describe('filterJobs — score below threshold', () => {
   });
 });
 
+describe('filterJobs — minimum matched skills', () => {
+  test('requires more than one matched skill for larger profiles', () => {
+    const jobs = [makeJob({
+      skills: ['react', 'python', 'java', 'go'],
+      description: '',
+    })];
+    const profile = makeProfile({
+      skills: ['react', 'typescript', 'node', 'docker', 'postgres', 'aws', 'redis', 'kubernetes'],
+    });
+
+    const result = filterJobs(jobs, profile);
+    expect(result).toHaveLength(0);
+  });
+
+  test('keeps larger-profile jobs when minimum matched skills is reached', () => {
+    const jobs = [makeJob({
+      skills: ['react', 'node', 'python', 'java'],
+      description: '',
+    })];
+    const profile = makeProfile({
+      skills: ['react', 'typescript', 'node', 'docker', 'postgres', 'aws', 'redis', 'kubernetes'],
+    });
+
+    const result = filterJobs(jobs, profile);
+    expect(result).toHaveLength(1);
+  });
+});
+
 describe('filterJobs — text fallback matching', () => {
   test('matches profile skills found in title and description when skills array is empty', () => {
     const jobs = [makeJob({

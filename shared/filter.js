@@ -274,7 +274,7 @@ function filterJobs(jobs, profile) {
   const keywordsLower  = keywords.map((w) => normalizeForTextMatch(w).trim()).filter(Boolean);
   const profileSize = canonicalSet(profileSkills).size;
   const minScore = minScoreForProfileSize(profileSize);
-  const minMatches = Math.min(MIN_MATCHED_SKILLS, minMatchedSkillsForProfileSize(profileSize));
+  const minMatches = minMatchedSkillsForProfileSize(profileSize);
 
   const results = [];
 
@@ -313,7 +313,7 @@ function filterJobs(jobs, profile) {
       score = calcSparseEnrichedScore(matches, enrichedSkillCount);
     }
 
-    if (matches < 1) continue;
+    if (matches < minMatches) continue;
 
     // For jobs without structured skills and without enrichment, keep a softer gate:
     // one real skill mention is enough to keep visibility for sparse-site cards.
