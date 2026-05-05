@@ -80,6 +80,16 @@ const AREA_TO_SEARCH_TERM = {
 	mobile: 'desenvolvedor mobile',
 };
 
+// Maps profile area to 99Freelas ?categoria= slug
+const FREELAS99_AREA_TO_CATEGORY = {
+	development: 'web-mobile-e-software',
+	mobile:      'web-mobile-e-software',
+	data:        'web-mobile-e-software',
+	design:      'design-e-criacao',
+	marketing:   'vendas-e-marketing',
+	writing:     'escrita',
+};
+
 function createDefaultProfile() {
 	return {
 		skills: [],
@@ -116,12 +126,17 @@ function getProfileSearchTerm(profile) {
 	return getProfileSearchTerms(profile)[0] || '';
 }
 
-function buildSiteSearchUrl(site, term) {
+function buildSiteSearchUrl(site, term, profile) {
 	const url = new URL(SITE_URLS[site]);
 
 	if (!term) {
 		if (site === 'gupy') {
 			url.pathname = '/job-search/sortBy=publishedDate';
+		}
+		if (site === 'freelas99') {
+			const area = String(profile?.area || 'development').toLowerCase();
+			const category = FREELAS99_AREA_TO_CATEGORY[area] || 'web-mobile-e-software';
+			url.searchParams.set('categoria', category);
 		}
 		return url.toString();
 	}
@@ -133,9 +148,13 @@ function buildSiteSearchUrl(site, term) {
 		case 'workana':
 			url.searchParams.set('query', term);
 			break;
-		case 'freelas99':
+		case 'freelas99': {
+			const area = String(profile?.area || 'development').toLowerCase();
+			const category = FREELAS99_AREA_TO_CATEGORY[area] || 'web-mobile-e-software';
+			url.searchParams.set('categoria', category);
 			url.searchParams.set('q', term);
 			break;
+		}
 		case 'linkedin':
 			url.searchParams.set('keywords', term);
 			break;
@@ -436,7 +455,7 @@ async function ensureAuthTab(site, profile) {
 		return currentFlow;
 	}
 
-	const tab = await createInteractiveTab(buildSiteSearchUrl(site, getProfileSearchTerm(profile)));
+	const tab = await createInteractiveTab(buildSiteSearchUrl(site, getProfileSearchTerm(profile), profile));
 	const flow = {
 		site,
 		tabId: tab.id,
@@ -560,9 +579,9 @@ async function collectJobsDirectlyFromDom(tabId, site) {
 // Per-site execution
 // ---------------------------------------------------------------------------
 
-async function scrapeSiteForTerm(tabId, site, term) {
+async function scrapeSiteForTerm(tabId, site, term, profile) {
 	try {
-		await navigateTabAndWaitForLoad(tabId, buildSiteSearchUrl(site, term));
+		await navigateTabAndWaitForLoad(tabId, buildSiteSearchUrl(site, term, profile));
 		if (await siteRequiresLogin(tabId, site)) {
 			return { jobs: [], loginRequired: true, failed: false };
 		}
@@ -592,7 +611,7 @@ async function scrapeSiteInTab(tabId, site, profile) {
 	let failed = false;
 
 	for (const term of terms) {
-		const result = await scrapeSiteForTerm(tabId, site, term);
+		const result = await scrapeSiteForTerm(tabId, site, term, profile);
 		failed = failed || Boolean(result.failed);
 
 		if (result.loginRequired) {
