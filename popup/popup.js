@@ -770,6 +770,25 @@ function waitTabComplete(tabId, timeoutMs = DETAIL_TAB_TIMEOUT_MS) {
     }
 
     chrome.tabs.onUpdated.addListener(onUpdated);
+
+    chrome.tabs.get(tabId, (tab) => {
+      if (settled) return;
+
+      if (chrome.runtime.lastError) {
+        settled = true;
+        clearTimeout(timeoutId);
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+
+      if (tab?.status === 'complete') {
+        settled = true;
+        clearTimeout(timeoutId);
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        resolve();
+      }
+    });
   });
 }
 
@@ -2242,6 +2261,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const outputText = normalizeResumeForAtsPdf(baseOutputText, resumeMissingKeywords);
       if (!outputText) {
         throw new Error('Nao foi possivel gerar o conteudo otimizado do curriculo.');
+      }
+
+      if (resumeIsPDF && resumeOriginalBytes) {
+        resumeOptimizedText = outputText;
+        await downloadOptimizedPdfFromOriginal(resumeOriginalBytes, resumeMissingKeywords, `${baseName}.pdf`);
+        return;
       }
 
       await downloadAtsFriendlyPDF(outputText, `${baseName}.pdf`);
