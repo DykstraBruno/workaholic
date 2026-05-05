@@ -69,6 +69,9 @@
    ========================================================= */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Protect [hidden] from being overridden by display-setting CSS rules */
+[hidden] { display: none !important; }
+
 body {
   width: 420px;
   max-height: 580px;
