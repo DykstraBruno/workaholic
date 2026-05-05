@@ -8,11 +8,17 @@
 </head>
 <body>
   <header class="header">
-    <span class="header-logo">Workaholic</span>
+    <div class="header-top">
+      <span class="header-logo">Workaholic</span>
+      <div class="lang-btn-wrap">
+        <span class="lang-btn-label" data-i18n="languageLabel">Idioma</span>
+        <button id="lang-btn" class="lang-btn" aria-label="Switch language"><span class="lang-flag">🇧🇷</span> PT</button>
+      </div>
+    </div>
     <nav class="tabs" role="tablist">
-      <button class="tab-btn active" role="tab" data-tab="jobs"    aria-selected="true"  aria-controls="tab-jobs">Vagas</button>
-      <button class="tab-btn"        role="tab" data-tab="profile"  aria-selected="false" aria-controls="tab-profile">Perfil</button>
-      <button class="tab-btn"        role="tab" data-tab="resume"   aria-selected="false" aria-controls="tab-resume">Currículo</button>
+      <button class="tab-btn active" role="tab" data-tab="jobs"    aria-selected="true"  aria-controls="tab-jobs"    data-i18n="tabJobs">Vagas</button>
+      <button class="tab-btn"        role="tab" data-tab="profile"  aria-selected="false" aria-controls="tab-profile" data-i18n="tabProfile">Perfil</button>
+      <button class="tab-btn"        role="tab" data-tab="resume"   aria-selected="false" aria-controls="tab-resume"  data-i18n="tabResume">Currículo</button>
     </nav>
   </header>
 
@@ -22,7 +28,7 @@
     <section id="tab-jobs" class="tab-pane active" role="tabpanel">
 
       <div class="jobs-toolbar">
-        <button id="fetch-now-btn" class="btn btn--primary">Buscar agora</button>
+        <button id="fetch-now-btn" class="btn btn--primary" data-i18n="fetchNow">Buscar agora</button>
         <span id="last-fetch" class="last-fetch-text">—</span>
       </div>
 
@@ -32,6 +38,7 @@
       <div id="fetch-diagnostics" class="fetch-diagnostics" hidden></div>
 
       <ul id="job-list" class="job-list" aria-live="polite"></ul>
+      <p id="jobs-empty" class="empty-state" hidden></p>
 
     </section>
 
@@ -40,35 +47,35 @@
 
       <!-- Skills -->
       <div class="field-group">
-        <label class="field-label">Habilidades</label>
+        <label class="field-label" data-i18n="skillsLabel">Habilidades</label>
         <div class="input-row">
-          <input id="skill-input" class="input" type="text" placeholder="ex: react, python…" />
-          <button id="add-skill-btn" class="btn btn--secondary">Adicionar</button>
+          <input id="skill-input" class="input" type="text" data-i18n-placeholder="skillsPlaceholder" placeholder="ex: react, python…" />
+          <button id="add-skill-btn" class="btn btn--secondary" data-i18n="addBtn">Adicionar</button>
         </div>
         <div id="skills-tags" class="tags-container" aria-label="Habilidades adicionadas"></div>
         <div class="input-row profile-resume-import-row">
           <input id="profile-resume-file-input" type="file" accept=".pdf,.docx" hidden />
-          <button id="profile-resume-import-btn" class="btn btn--secondary" type="button">Importar do currículo</button>
+          <button id="profile-resume-import-btn" class="btn btn--secondary" type="button" data-i18n="importFromResume">Importar do currículo</button>
         </div>
         <p id="profile-resume-import-status" class="field-hint" hidden></p>
       </div>
 
       <!-- Área -->
       <div class="field-group">
-        <label class="field-label" for="profile-area">Área</label>
+        <label class="field-label" for="profile-area" data-i18n="areaLabel">Área</label>
         <select id="profile-area" class="input">
-          <option value="development">Desenvolvimento</option>
-          <option value="design">Design</option>
-          <option value="marketing">Marketing</option>
-          <option value="writing">Redação</option>
-          <option value="data">Dados</option>
-          <option value="mobile">Mobile</option>
+          <option value="development" data-i18n="areaDevelopment">Desenvolvimento</option>
+          <option value="design"      data-i18n="areaDesign">Design</option>
+          <option value="marketing"   data-i18n="areaMarketing">Marketing</option>
+          <option value="writing"     data-i18n="areaWriting">Redação</option>
+          <option value="data"        data-i18n="areaData">Dados</option>
+          <option value="mobile"      data-i18n="areaMobile">Mobile</option>
         </select>
       </div>
 
       <!-- Budget -->
       <div class="field-group">
-        <label class="field-label">Orçamento mínimo</label>
+        <label class="field-label" data-i18n="budgetLabel">Orçamento mínimo</label>
         <div class="input-row">
           <input id="profile-min-budget" class="input input--number" type="number" min="0" placeholder="0" />
           <select id="profile-currency" class="input input--currency">
@@ -80,53 +87,68 @@
 
       <!-- Keywords (positive filter) -->
       <div class="field-group">
-        <label class="field-label">Palavras-chave / Cargo</label>
+        <label class="field-label" data-i18n="keywordsLabel">Palavras-chave / Cargo</label>
         <div class="input-row">
-          <input id="keywords-input" class="input" type="text" placeholder="ex: desenvolvedor, frontend…" />
-          <button id="add-keywords-btn" class="btn btn--secondary">Adicionar</button>
+          <input id="keywords-input" class="input" type="text" data-i18n-placeholder="keywordsPlaceholder" placeholder="ex: desenvolvedor, frontend…" />
+          <button id="add-keywords-btn" class="btn btn--secondary" data-i18n="addBtn">Adicionar</button>
         </div>
         <div id="keywords-tags" class="tags-container" aria-label="Palavras-chave"></div>
-        <p class="field-hint">Usa essas palavras para buscar vagas direto nos sites. Se vazio, usa a Área como termo base.</p>
+        <p class="field-hint" data-i18n="keywordsHint">Usa essas palavras para buscar vagas direto nos sites. Se vazio, usa a Área como termo base.</p>
       </div>
 
       <!-- Blacklist -->
       <div class="field-group">
-        <label class="field-label">Palavras bloqueadas</label>
+        <label class="field-label" data-i18n="blacklistLabel">Palavras bloqueadas</label>
         <div class="input-row">
-          <input id="blacklist-input" class="input" type="text" placeholder="ex: urgente, estágio…" />
-          <button id="add-blacklist-btn" class="btn btn--secondary">Adicionar</button>
+          <input id="blacklist-input" class="input" type="text" data-i18n-placeholder="blacklistPlaceholder" placeholder="ex: urgente, estágio…" />
+          <button id="add-blacklist-btn" class="btn btn--secondary" data-i18n="addBtn">Adicionar</button>
         </div>
         <div id="blacklist-tags" class="tags-container" aria-label="Palavras bloqueadas"></div>
-        <p class="field-hint">Vagas com essas palavras no título são excluídas.</p>
+        <p class="field-hint" data-i18n="blacklistHint">Vagas com essas palavras no título são excluídas.</p>
       </div>
 
       <!-- Sites -->
       <div class="field-group">
-        <label class="field-label">Plataformas</label>
+        <label class="field-label" data-i18n="platformsLabel">Plataformas</label>
         <div class="sites-grid">
-          <label class="checkbox-label"><input id="site-upwork"    type="checkbox" checked /> Upwork</label>
-          <label class="checkbox-label"><input id="site-workana"   type="checkbox" checked /> Workana</label>
-          <label class="checkbox-label"><input id="site-freelas99" type="checkbox" checked /> 99Freelas</label>
-          <label class="checkbox-label"><input id="site-linkedin"  type="checkbox" checked /> LinkedIn</label>
-          <label class="checkbox-label"><input id="site-indeed"    type="checkbox" checked /> Indeed</label>
-          <label class="checkbox-label"><input id="site-gupy"      type="checkbox" checked /> Gupy</label>
+          <label class="checkbox-label" data-site="upwork"><input id="site-upwork"    type="checkbox" checked /><span>Upwork</span></label>
+          <label class="checkbox-label" data-site="workana"><input id="site-workana"   type="checkbox" checked /><span>Workana</span></label>
+          <label class="checkbox-label" data-site="freelas99"><input id="site-freelas99" type="checkbox" checked /><span>99Freelas</span></label>
+          <label class="checkbox-label" data-site="linkedin"><input id="site-linkedin"  type="checkbox" checked /><span>LinkedIn</span></label>
+          <label class="checkbox-label" data-site="indeed"><input id="site-indeed"    type="checkbox" checked /><span>Indeed</span></label>
+          <label class="checkbox-label" data-site="gupy"><input id="site-gupy"      type="checkbox" checked /><span>Gupy</span></label>
         </div>
       </div>
 
       <!-- Frequência -->
       <div class="field-group">
-        <label class="field-label" for="profile-interval">Frequência de busca</label>
+        <label class="field-label" for="profile-interval" data-i18n="frequencyLabel">Frequência de busca</label>
         <select id="profile-interval" class="input">
-          <option value="1" selected>1 minuto</option>
-          <option value="30">30 minutos</option>
-          <option value="60">1 hora</option>
-          <option value="180">3 horas</option>
-          <option value="360">6 horas</option>
-          <option value="1440">1 vez por dia</option>
+          <option value="1"    selected data-i18n="freq1min">1 minuto</option>
+          <option value="30"           data-i18n="freq30min">30 minutos</option>
+          <option value="60"           data-i18n="freq1h">1 hora</option>
+          <option value="180"          data-i18n="freq3h">3 horas</option>
+          <option value="360"          data-i18n="freq6h">6 horas</option>
+          <option value="1440"         data-i18n="freq1d">1 vez por dia</option>
         </select>
       </div>
 
-      <button id="save-profile-btn" class="btn btn--primary btn--full">Salvar</button>
+      <!-- Idioma / Language -->
+      <div class="field-group">
+        <label class="field-label" data-i18n="languageLabel">Idioma</label>
+        <div class="lang-toggle-group">
+          <div class="lang-toggle" role="group" aria-label="Select language">
+            <button id="lang-opt-pt" class="lang-toggle-opt active" data-lang="pt">
+              <span class="lang-flag">🇧🇷</span> Português
+            </button>
+            <button id="lang-opt-en" class="lang-toggle-opt" data-lang="en">
+              <span class="lang-flag">🇺🇸</span> English
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <button id="save-profile-btn" class="btn btn--primary btn--full" data-i18n="saveProfile">Salvar</button>
 
     </section>
 
@@ -136,51 +158,53 @@
       <!-- Upload -->
       <div class="resume-upload-area" id="resume-upload-area">
         <input type="file" id="resume-file-input" accept=".pdf,.docx" hidden />
-        <p class="resume-upload-hint" id="resume-upload-hint">Arraste um PDF ou DOCX aqui,<br/>ou clique para selecionar</p>
+        <span class="upload-icon">📄</span>
+        <p class="resume-upload-hint" id="resume-upload-hint" data-i18n="uploadHint">Arraste um PDF ou DOCX aqui,
+ou clique para selecionar</p>
         <p class="resume-upload-name" id="resume-upload-name" hidden></p>
-        <button class="btn btn--secondary" id="resume-pick-btn">Selecionar arquivo</button>
+        <button class="btn btn--secondary" id="resume-pick-btn" data-i18n="pickFile">Selecionar arquivo</button>
       </div>
 
       <!-- ATS panel (shown after file + job selected) -->
       <div id="ats-panel" hidden>
         <div class="ats-job-select-row">
-          <label class="field-label" for="ats-job-select">Vaga para otimizar</label>
+          <label class="field-label" for="ats-job-select" data-i18n="jobForOptimize">Vaga para otimizar</label>
           <select id="ats-job-select" class="input"></select>
         </div>
 
         <div id="ats-scores" class="ats-scores" hidden>
           <div class="ats-score-block">
-            <span class="ats-score-label">Antes</span>
+            <span class="ats-score-label" data-i18n="scoreBefore">Antes</span>
             <span class="ats-score-value" id="ats-score-before">—</span>
           </div>
           <div class="ats-score-arrow">→</div>
           <div class="ats-score-block">
-            <span class="ats-score-label">Depois</span>
+            <span class="ats-score-label" data-i18n="scoreAfter">Depois</span>
             <span class="ats-score-value ats-score-value--after" id="ats-score-after">—</span>
           </div>
         </div>
 
         <div id="skills-gap-wrap" class="skills-gap-wrap" hidden>
-          <p class="field-label">Match de skills da vaga</p>
+          <p class="field-label" data-i18n="skillMatchLabel">Match de skills da vaga</p>
           <p id="skills-gap-summary" class="skills-gap-summary"></p>
 
           <div id="skills-gap-missing-wrap" hidden>
-            <p class="field-label">Faltando para match perfeito</p>
+            <p class="field-label" data-i18n="missingForPerfect">Faltando para match perfeito</p>
             <div id="skills-gap-missing-tags" class="tags-container"></div>
           </div>
         </div>
 
         <div id="ats-missing-wrap" class="ats-missing-wrap" hidden>
-          <p class="field-label">Palavras-chave ausentes injetadas</p>
+          <p class="field-label" data-i18n="missingInjected">Palavras-chave ausentes injetadas</p>
           <div id="ats-missing-tags" class="tags-container"></div>
         </div>
 
         <div class="ats-actions">
-          <button id="ats-analyze-btn" class="btn btn--primary btn--full">Analisar</button>
-          <p id="ats-docx-note" class="ats-docx-note" hidden>
+          <button id="ats-analyze-btn" class="btn btn--primary btn--full" data-i18n="analyzeBtn">Analisar</button>
+          <p id="ats-docx-note" class="ats-docx-note" hidden data-i18n="docxNote">
             DOCX: o resultado sera exportado em PDF com layout simplificado. Para preservar layout original, use um PDF de entrada.
           </p>
-          <button id="ats-download-btn" class="btn btn--secondary btn--full" hidden>Baixar currículo otimizado (PDF)</button>
+          <button id="ats-download-btn" class="btn btn--secondary btn--full" hidden data-i18n="downloadBtn">Baixar currículo otimizado (PDF)</button>
         </div>
       </div>
 
