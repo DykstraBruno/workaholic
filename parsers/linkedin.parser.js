@@ -118,6 +118,15 @@ function collapseRepeatedTitle(title) {
   return sanitize(text);
 }
 
+function fallbackDescription(card, title) {
+  const text = compactText(card.textContent || '');
+  if (!text) return '';
+  if (title && text.startsWith(title)) {
+    return compactText(text.slice(title.length)).slice(0, 500);
+  }
+  return text.slice(0, 500);
+}
+
 function parseSkills(card) {
   const out = [];
   for (const selector of SELECTORS.skills) {
@@ -215,7 +224,7 @@ function parseLinkedIn(html) {
 
     return cards.map((card) => {
       let title = firstText(card, SELECTORS.title);
-      let description = firstText(card, SELECTORS.description);
+      let description = firstText(card, SELECTORS.description) || fallbackDescription(card, title);
       const skills = parseSkills(card);
       const budgetText = firstText(card, SELECTORS.budget);
       const budget = parseBudget(budgetText);
