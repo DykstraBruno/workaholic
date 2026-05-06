@@ -15,7 +15,7 @@ const KEYS = {
   APPLIED_JOBS:     'appliedJobs',
 };
 
-const SITES = ['upwork', 'workana', 'freelas99', 'linkedin', 'indeed', 'gupy'];
+const SITES = ['upwork', 'workana', 'freelas99', 'linkedin', 'indeed', 'gupy', 'freelancer', 'weworkremotely', 'peopleperhour', 'guru'];
 
 // ---------------------------------------------------------------------------
 // Internationalization
@@ -187,12 +187,16 @@ function applyTranslations() {
 }
 
 const SITE_LABELS = {
-  upwork:    'Upwork',
-  workana:   'Workana',
-  freelas99: '99Freelas',
-  linkedin:  'LinkedIn',
-  indeed:    'Indeed',
-  gupy:      'Gupy',
+  upwork:         'Upwork',
+  workana:        'Workana',
+  freelas99:      '99Freelas',
+  linkedin:       'LinkedIn',
+  indeed:         'Indeed',
+  gupy:           'Gupy',
+  freelancer:     'Freelancer',
+  weworkremotely: 'We Work Remotely',
+  peopleperhour:  'PeoplePerHour',
+  guru:           'Guru',
 };
 
 // ---------------------------------------------------------------------------
@@ -1333,6 +1337,19 @@ async function renderHealthWarnings() {
   }
 }
 
+const DIAG_COLLAPSED_KEY = 'workaholic_diag_collapsed';
+
+function isDiagCollapsed() {
+  try {
+    const v = localStorage.getItem(DIAG_COLLAPSED_KEY);
+    return v === null ? true : v === '1';
+  } catch { return true; }
+}
+
+function setDiagCollapsed(collapsed) {
+  try { localStorage.setItem(DIAG_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch { /* noop */ }
+}
+
 function renderDiagnostics(diagnostics) {
   const container = document.getElementById('fetch-diagnostics');
 
@@ -1355,11 +1372,24 @@ function renderDiagnostics(diagnostics) {
       </div>`;
   }).join('');
 
+  const openAttr = isDiagCollapsed() ? '' : ' open';
   container.hidden = false;
   container.innerHTML = `
-    <div class="fetch-diagnostics-title">${t('diagTitle')}</div>
-    <div class="fetch-diagnostics-summary">${esc(summary)}</div>
-    <div class="fetch-diagnostics-list">${items}</div>`;
+    <details class="fetch-diagnostics-details"${openAttr}>
+      <summary class="fetch-diagnostics-summary-bar">
+        <span class="fetch-diagnostics-title">${t('diagTitle')}</span>
+        <span class="fetch-diagnostics-summary-inline">${esc(summary)}</span>
+        <span class="fetch-diagnostics-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <div class="fetch-diagnostics-list">${items}</div>
+    </details>`;
+
+  const details = container.querySelector('details');
+  if (details) {
+    details.addEventListener('toggle', () => {
+      setDiagCollapsed(!details.open);
+    });
+  }
 }
 
 function renderJobs(jobs) {
@@ -1382,24 +1412,28 @@ function renderJobs(jobs) {
     const score  = Math.round(job.score ?? 0);
     const budget = formatBudget(job.budget);
     const date   = formatDate(job.postedAt);
+    const desc   = (job.description || '').replace(/\s+/g, ' ').trim().slice(0, 220);
 
     const applied = appliedJobs.has(job.url);
     return `
       <li class="job-card${applied ? ' job-card--applied' : ''}" data-site="${esc(job.site)}" data-url="${esc(job.url)}">
-        <div class="job-card-header">
+        <div class="job-card-top">
           <a href="${esc(job.url)}" class="job-title" target="_blank" rel="noopener noreferrer">${esc(job.title)}</a>
-          <button class="job-apply-btn${applied ? ' job-apply-btn--done' : ''}" title="${applied ? t('appliedUnmark') : t('appliedMark')}" aria-label="${applied ? t('appliedUnmark') : t('appliedMark')}" aria-pressed="${applied}">
-            ${applied ? '✓' : '○'}
-          </button>
         </div>
         <div class="job-badges">
           <span class="badge badge-site badge-site--${esc(job.site)}">${esc(SITE_LABELS[job.site] ?? job.site)}</span>
           <span class="badge badge-score ${scoreClass(score)}">${score}% ${t('diagMatch')}</span>
           ${applied ? `<span class="badge badge-applied">${t('appliedBadge')}</span>` : ''}
         </div>
+        ${desc ? `<p class="job-desc">${esc(desc)}</p>` : ''}
         <div class="job-card-footer">
-          ${budget ? `<span class="job-budget">${esc(budget)}</span>` : ''}
-          ${date   ? `<span class="job-date">${esc(date)}</span>`     : ''}
+          <div class="job-meta">
+            ${budget ? `<span class="job-budget">${esc(budget)}</span>` : ''}
+            ${date   ? `<span class="job-date">${esc(date)}</span>`     : ''}
+          </div>
+          <button class="job-apply-btn${applied ? ' job-apply-btn--done' : ''}" title="${applied ? t('appliedUnmark') : t('appliedMark')}" aria-label="${applied ? t('appliedUnmark') : t('appliedMark')}" aria-pressed="${applied}">
+            ${applied ? '✓' : '+'}
+          </button>
         </div>
       </li>`;
   }).join('');
