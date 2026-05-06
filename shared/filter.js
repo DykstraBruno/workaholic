@@ -10,86 +10,105 @@ const SYNONYMS = {
   vue:        ['vue', 'vuejs', 'vue.js'],
   angular:    ['angular', 'angularjs'],
   typescript: ['typescript', 'ts'],
-  javascript: ['javascript', 'js'],
-  python:     ['python', 'python3'],
-  postgres:   ['postgres', 'postgresql'],
+  javascript: ['javascript', 'js', 'ecmascript'],
+  python:     ['python', 'python3', 'py'],
+  postgres:   ['postgres', 'postgresql', 'pg'],
   mongo:      ['mongo', 'mongodb'],
-  docker:     ['docker', 'dockerfile'],
+  docker:     ['docker', 'dockerfile', 'container', 'containers'],
   java:       ['java', 'jvm'],
-  spring:     ['spring', 'spring boot', 'springboot'],
-  sql:        ['sql', 'mysql', 'mariadb'],
-  aws:        ['aws', 'amazon web services'],
-  gcp:        ['gcp', 'google cloud'],
-  azure:      ['azure', 'microsoft azure'],
-  kubernetes: ['kubernetes', 'k8s'],
+  spring:     ['spring', 'spring boot', 'springboot', 'spring mvc', 'spring cloud'],
+  sql:        ['sql', 'mysql', 'mariadb', 't-sql', 'pl/sql'],
+  aws:        ['aws', 'amazon web services', 'ec2', 'lambda', 'rds', 's3'],
+  gcp:        ['gcp', 'google cloud', 'gke'],
+  azure:      ['azure', 'microsoft azure', 'aks'],
+  kubernetes: ['kubernetes', 'k8s', 'helm'],
   git:        ['git', 'github', 'gitlab', 'bitbucket'],
-  linux:      ['linux', 'ubuntu', 'centos'],
-  rest:       ['rest', 'restful', 'rest api', 'api rest'],
-  graphql:    ['graphql'],
+  linux:      ['linux', 'ubuntu', 'centos', 'debian', 'redhat'],
+  rest:       ['rest', 'restful', 'rest api', 'api rest', 'rest apis', 'web apis', 'apis rest'],
+  graphql:    ['graphql', 'apollo'],
   nextjs:     ['next.js', 'nextjs', 'next'],
   nestjs:     ['nest.js', 'nestjs', 'nest'],
+  nuxtjs:     ['nuxt.js', 'nuxtjs', 'nuxt'],
+  express:    ['express', 'express.js', 'expressjs'],
+  fastify:    ['fastify'],
+  fastapi:    ['fastapi'],
+  django:     ['django'],
+  flask:      ['flask'],
   redis:      ['redis'],
-  kafka:      ['kafka'],
-  rabbitmq:   ['rabbitmq', 'rabbit mq'],
+  kafka:      ['kafka', 'kafka streams'],
+  rabbitmq:   ['rabbitmq', 'rabbit mq', 'amqp'],
   jenkins:    ['jenkins'],
-  cicd:       ['ci/cd', 'ci cd', 'continuous integration'],
-  devops:     ['devops'],
+  cicd:       ['ci/cd', 'ci cd', 'continuous integration', 'continuous delivery', 'github actions', 'gitlab ci', 'circleci'],
+  devops:     ['devops', 'sre', 'devsecops', 'gitops'],
   html:       ['html', 'html5'],
-  css:        ['css', 'css3', 'sass', 'scss', 'less'],
+  css:        ['css', 'css3', 'sass', 'scss', 'less', 'stylus', 'tailwind', 'tailwind css'],
+  bootstrap:  ['bootstrap'],
+  materialui: ['material ui', 'mui', 'material-ui'],
   php:        ['php', 'laravel', 'symfony', 'codeigniter'],
-  dotnet:     ['.net', 'dotnet', 'asp.net', 'c#', 'csharp'],
+  dotnet:     ['.net', 'dotnet', 'asp.net', 'c#', 'csharp', '.net core', 'asp.net core'],
   golang:     ['go', 'golang'],
   rust:       ['rust', 'rustlang'],
-  ruby:       ['ruby', 'rails', 'ruby on rails'],
+  ruby:       ['ruby', 'rails', 'ruby on rails', 'ror'],
   swift:      ['swift', 'swiftui'],
   kotlin:     ['kotlin'],
   flutter:    ['flutter', 'dart'],
-  reactnative: ['react native', 'react-native'],
-  android:    ['android', 'android studio'],
-  ios:        ['ios', 'xcode'],
+  reactnative: ['react native', 'react-native', 'rn'],
+  android:    ['android', 'android studio', 'jetpack compose'],
+  ios:        ['ios', 'xcode', 'uikit'],
   unity:      ['unity', 'unity3d'],
   tensorflow: ['tensorflow', 'tf'],
   pytorch:    ['pytorch'],
   sklearn:    ['scikit-learn', 'sklearn'],
-  pandas:     ['pandas'],
+  pandas:     ['pandas', 'numpy'],
   powerbi:    ['power bi', 'powerbi'],
   tableau:    ['tableau'],
   figma:      ['figma'],
-  photoshop:  ['photoshop', 'illustrator', 'adobe xd'],
+  photoshop:  ['photoshop', 'illustrator', 'adobe xd', 'adobe illustrator', 'adobe photoshop'],
   wordpress:  ['wordpress', 'wp', 'elementor'],
   shopify:    ['shopify'],
   salesforce: ['salesforce', 'crm salesforce'],
   jira:       ['jira', 'confluence'],
-  selenium:   ['selenium', 'cypress', 'playwright'],
-  jest:       ['jest', 'mocha', 'jasmine', 'vitest'],
-  terraform:  ['terraform', 'ansible', 'puppet'],
-  nginx:      ['nginx', 'apache'],
+  selenium:   ['selenium', 'cypress', 'playwright', 'puppeteer'],
+  jest:       ['jest', 'mocha', 'jasmine', 'vitest', 'chai'],
+  terraform:  ['terraform', 'ansible', 'puppet', 'pulumi'],
+  nginx:      ['nginx', 'apache', 'tomcat'],
   elasticsearch: ['elasticsearch', 'elastic', 'opensearch'],
-  socketio:   ['socket.io', 'websocket', 'websockets'],
-  fullstack:  ['full stack', 'fullstack', 'full-stack'],
-  frontend:   ['frontend', 'front-end', 'front end'],
-  backend:    ['backend', 'back-end', 'back end'],
+  socketio:   ['socket.io', 'websocket', 'websockets', 'sockets'],
+  fullstack:  ['full stack', 'fullstack', 'full-stack', 'desenvolvedor full stack', 'desenvolvedor fullstack'],
+  frontend:   ['frontend', 'front-end', 'front end', 'desenvolvedor frontend', 'desenvolvedor front-end', 'dev frontend'],
+  backend:    ['backend', 'back-end', 'back end', 'desenvolvedor backend', 'desenvolvedor back-end', 'dev backend'],
+  mobile:     ['mobile', 'desenvolvimento mobile', 'desenvolvedor mobile'],
+  webdev:     ['web development', 'desenvolvimento web', 'desenvolvedor web', 'web developer'],
+  agile:      ['agile', 'agil', 'scrum', 'kanban', 'metodologia agil', 'metodologias ageis'],
+  microservices: ['microservices', 'microsservicos', 'microservicos', 'micro services'],
+  oauth:      ['oauth', 'oauth2', 'jwt', 'sso', 'openid connect'],
+  redux:      ['redux', 'mobx', 'zustand'],
+  prisma:     ['prisma', 'sequelize', 'typeorm', 'drizzle'],
+  webpack:    ['webpack', 'vite', 'rollup', 'parcel', 'esbuild'],
+  firebase:   ['firebase', 'firestore', 'supabase'],
+  ddd:        ['ddd', 'domain driven design', 'clean architecture', 'hexagonal', 'arquitetura limpa'],
+  solid:      ['solid', 'design patterns', 'tdd', 'bdd'],
 };
 
-const MIN_MATCH_SCORE = 20;
+const MIN_MATCH_SCORE = 12;
 const MIN_MATCHED_SKILLS = 1;
 
 function normalizeForTextMatch(value) {
   return String(value || '')
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
+    .replace(/[̀-ͯ]/g, '');
 }
 
 function minScoreForProfileSize(size) {
   if (size >= 10) return 5;
-  if (size >= 6) return 15;
+  if (size >= 6) return 8;
   return MIN_MATCH_SCORE;
 }
 
 function minMatchedSkillsForProfileSize(size) {
-  if (size >= 15) return 3;
-  if (size >= 8) return 2;
+  if (size >= 15) return 2;
+  if (size >= 8) return 1;
   return 1;
 }
 
@@ -117,13 +136,13 @@ function countMatches(jobOrSkills, profileSkills) {
 const ALIAS_TO_CANONICAL = {};
 for (const [canonical, aliases] of Object.entries(SYNONYMS)) {
   for (const alias of aliases) {
-    ALIAS_TO_CANONICAL[alias] = canonical;
+    ALIAS_TO_CANONICAL[normalizeForTextMatch(alias).trim()] = canonical;
   }
 }
 
 /**
  * Resolves a skill string to its canonical form.
- * Falls back to the lowercased input when no synonym is found.
+ * Falls back to the lowercased+ASCII input when no synonym is found.
  * @param {string} skill
  * @returns {string}
  */
@@ -157,6 +176,9 @@ function textMentionsSkill(text, skill) {
   if (!haystack) return false;
 
   return aliasesFor(skill).some((alias) => {
+    if (!alias) return false;
+    // Word-boundary regex that treats anything not in [a-z0-9+#] as boundary.
+    // Allows matches before parens, dashes, slashes, quotes etc.
     const pattern = new RegExp(`(^|[^a-z0-9+#])${escapeRegExp(alias)}($|[^a-z0-9+#])`, 'i');
     return pattern.test(haystack);
   });
@@ -164,9 +186,11 @@ function textMentionsSkill(text, skill) {
 
 /**
  * Calculates the match score between a job and a profile.
- * Score = (your matching skills / job required skills) * 100
- * This shows what % of the job's requirements you can cover.
- * When job has no structured skills, falls back to: (matches / profile skills) * 100
+ * Uses the most generous of three perspectives:
+ *   - jobCoverage     = matches / jobSet.size       (% of job requirements covered)
+ *   - profileCoverage = matches / profileSet.size   (% of profile skills mentioned)
+ *   - matchRatio      = capped at 3 matches → 100%  (rewards strong absolute signal)
+ * Generous scoring prevents jobs with many requirements from being unfairly low.
  * @param {Object|string[]} jobOrSkills
  * @param {string[]} profileSkills
  * @returns {number}
@@ -179,20 +203,18 @@ function calcScore(jobOrSkills, profileSkills) {
   const profileSet = canonicalSet(profileSkills);
   const matches = countMatches(jobOrSkills, profileSkills);
 
-  // If job has structured skills, use job-perspective: % of job requirements covered
-  if (jobSet.size > 0) {
-    return (matches / jobSet.size) * 100;
-  }
+  if (matches === 0) return 0;
 
-  // Fallback for text-based matching: % of profile skills mentioned in job
-  return (matches / profileSet.size) * 100;
+  const jobCoverage = jobSet.size > 0 ? (matches / jobSet.size) * 100 : 0;
+  const profileCoverage = profileSet.size > 0 ? (matches / profileSet.size) * 100 : 0;
+  const matchRatio = Math.min(matches, 3) / 3 * 100;
+
+  return Math.max(jobCoverage, profileCoverage, matchRatio);
 }
 
 /**
  * Computes a conservative score for jobs that had no structured skills and were
- * enriched from sparse text. This avoids flat 60% scores from single mentions.
- *
- * Example: if only 1 inferred skill exists, denominator floor keeps score low.
+ * enriched from sparse text. Avoids flat 60% scores from single mentions.
  * @param {number} matches
  * @param {number} inferredSkillCount
  * @returns {number}
@@ -205,30 +227,27 @@ function calcSparseEnrichedScore(matches, inferredSkillCount) {
 
 /**
  * Enriches a job that has no/minimal skills by extracting from description.
- * Uses text-based keyword matching against known synonyms + common tech terms.
- * Only enrich if description is substantial (> 100 chars) to avoid false positives.
+ * Uses text-based keyword matching against known synonyms.
  * @param {Object} job
  * @returns {Object}
  */
 function enrichJobWithDescriptionSkills(job) {
   const currentSkills = Array.isArray(job.skills) ? job.skills : [];
 
-  // Skip enrichment only when 2+ skills exist AND at least one maps to a known canonical.
-  // Long-phrase JSON-LD skills (e.g. "Experiência com Node.js") don't canonicalize, so we
-  // still need to enrich from description in that case.
   if (currentSkills.length >= 2 && canonicalSet(currentSkills).size > 0) return job;
 
   const fullText = `${job.title || ''} ${job.description || ''}`;
-  // Don't enrich if description is too sparse
-  if (fullText.length < 40) return job;
+  if (!fullText.trim()) return job;
 
-  const descriptionText = fullText.toLowerCase();
+  const descriptionText = normalizeForTextMatch(fullText);
   const extractedSkills = [];
   const seen = new Set();
 
   for (const [canonical, aliases] of Object.entries(SYNONYMS)) {
     for (const alias of [canonical, ...aliases]) {
-      const pattern = new RegExp(`(^|[^a-z0-9+#])${escapeRegExp(alias)}($|[^a-z0-9+#])`, 'i');
+      const normAlias = normalizeForTextMatch(alias).trim();
+      if (!normAlias) continue;
+      const pattern = new RegExp(`(^|[^a-z0-9+#])${escapeRegExp(normAlias)}($|[^a-z0-9+#])`, 'i');
       if (pattern.test(descriptionText) && !seen.has(canonical)) {
         extractedSkills.push(canonical);
         seen.add(canonical);
@@ -248,14 +267,6 @@ function enrichJobWithDescriptionSkills(job) {
 /**
  * Filters and ranks an array of normalised job objects against a user profile.
  *
- * Filtering order:
- *   1. Discard jobs from sites disabled in the profile
- *   2. Discard jobs whose title contains a blacklisted word
- *   3. Discard jobs where budget.max < profile.minBudget (when both defined)
- *   4. Calculate score: (your matching skills / job required skills) * 100
- *   5. Discard jobs with score < MIN_MATCH_SCORE (20%) or 0 skills matched
- *   6. Sort by score descending
- *
  * @param {Object[]} jobs     - Array of normalised job objects
  * @param {Object}   profile  - User profile
  * @returns {Object[]}        - Filtered jobs with a `score` field, sorted by score desc
@@ -265,66 +276,72 @@ function filterJobs(jobs, profile) {
     skills: profileSkills = [],
     minBudget = null,
     blacklist = [],
-    keywords = [],
     sites = {},
   } = profile;
 
-  // Pre-compute lowercased blacklist and keywords for fast comparison
   const blacklistLower = blacklist.map((w) => normalizeForTextMatch(w).trim()).filter(Boolean);
-  const keywordsLower  = keywords.map((w) => normalizeForTextMatch(w).trim()).filter(Boolean);
   const profileSize = canonicalSet(profileSkills).size;
   const minScore = minScoreForProfileSize(profileSize);
   const minMatches = minMatchedSkillsForProfileSize(profileSize);
+  const debug = (typeof globalThis !== 'undefined') && globalThis.__WORKAHOLIC_DEBUG === true;
+  const dropLog = [];
 
   const results = [];
 
   for (const job of jobs) {
-    // 1. Site enabled in profile
-    if (sites[job.site] === false) continue;
+    if (sites[job.site] === false) {
+      if (debug) dropLog.push({ url: job.url, reason: 'site-disabled' });
+      continue;
+    }
 
-    // 2. Blacklist check against title
     const titleLower = normalizeForTextMatch(job.title || '');
-    if (blacklistLower.some((word) => titleLower.includes(word))) continue;
+    if (blacklistLower.some((word) => titleLower.includes(word))) {
+      if (debug) dropLog.push({ url: job.url, reason: 'blacklist' });
+      continue;
+    }
 
-    // 3. Keywords (positive filter) — skip if no keyword matches title/description
-    const searchableText = `${job.title || ''} ${job.description || ''}`;
-    const searchableLower = normalizeForTextMatch(searchableText);
-    if (keywordsLower.length > 0 && !keywordsLower.some((kw) => searchableLower.includes(kw))) continue;
-
-    // 4. Budget minimum
     if (
       minBudget != null &&
       job.budget != null &&
       job.budget.max < minBudget
-    ) continue;
+    ) {
+      if (debug) dropLog.push({ url: job.url, reason: 'budget' });
+      continue;
+    }
 
-    // Enrich job with skills from description if structured skills are missing
     const originalSkillCount = (Array.isArray(job.skills) ? job.skills.length : 0);
     const enrichedJob = enrichJobWithDescriptionSkills(job);
     const enrichedSkillCount = (Array.isArray(enrichedJob.skills) ? enrichedJob.skills.length : 0);
     const wasEnriched = enrichedSkillCount > originalSkillCount;
 
-    // 4 & 5. Score / absolute matches — discard if both are below threshold.
     const matches = countMatches(enrichedJob, profileSkills);
     let score = calcScore(enrichedJob, profileSkills);
 
-    // For cards with no structured skills, use conservative score from inferred skills.
     if (wasEnriched && originalSkillCount === 0) {
-      score = calcSparseEnrichedScore(matches, enrichedSkillCount);
+      const sparse = calcSparseEnrichedScore(matches, enrichedSkillCount);
+      score = Math.max(score, sparse);
     }
 
-    if (matches < minMatches) continue;
+    if (matches < minMatches) {
+      if (debug) dropLog.push({ url: job.url, reason: 'low-matches', matches, minMatches });
+      continue;
+    }
 
-    // For jobs without structured skills and without enrichment, keep a softer gate:
-    // one real skill mention is enough to keep visibility for sparse-site cards.
-    const hasOnlySparseTextSignals = originalSkillCount === 0 && !wasEnriched;
-    if (!hasOnlySparseTextSignals && score < minScore) continue;
+    const hasNoStructuredSkills = originalSkillCount === 0;
+    if (!hasNoStructuredSkills && score < minScore) {
+      if (debug) dropLog.push({ url: job.url, reason: 'low-score', score: Math.round(score), minScore });
+      continue;
+    }
 
     results.push({ ...job, score });
   }
 
-  // 6. Sort by score descending
   results.sort((a, b) => b.score - a.score);
+
+  if (debug && dropLog.length) {
+    // eslint-disable-next-line no-console
+    console.log('[Workaholic] filter dropped:', dropLog);
+  }
 
   return results;
 }
@@ -338,6 +355,7 @@ if (typeof module !== 'undefined' && module.exports) {
     minScoreForProfileSize,
     minMatchedSkillsForProfileSize,
     countMatches,
+    calcScore,
   };
 }
 
