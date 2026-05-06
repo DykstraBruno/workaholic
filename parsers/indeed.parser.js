@@ -59,17 +59,24 @@ function firstAttr(root, selectors, attr) {
   return '';
 }
 
+function fallbackDescription(card, title) {
+  const text = (card.textContent || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  if (title && text.startsWith(title)) {
+    return text.slice(title.length).trim().slice(0, 500);
+  }
+  return text.slice(0, 500);
+}
+
 function parseSkills(card) {
   const out = [];
   for (const selector of SELECTORS.skills) {
     const items = card.querySelectorAll(selector);
     if (!items.length) continue;
-
     for (const item of items) {
       const value = (item.textContent || '').trim();
       if (value) out.push(value);
     }
-
     if (out.length) break;
   }
   return out;
@@ -139,14 +146,20 @@ function parseSkillsFromJsonLd(node) {
   const raw = node.skills || node.skillsRequired || node.qualifications;
   if (!raw) return [];
 
+  let tokens;
   if (Array.isArray(raw)) {
-    return raw.map((v) => String(v).trim()).filter(Boolean);
+    tokens = raw.map((v) => String(v).trim()).filter(Boolean);
+  } else {
+    tokens = String(raw)
+      .split(/,|\||;|\n/)
+      .map((v) => v.trim())
+      .filter(Boolean);
   }
 
-  return String(raw)
-    .split(/,|\||;/)
-    .map((v) => v.trim())
-    .filter(Boolean);
+  // Drop long descriptive phrases (> 4 words). They pollute the skill set
+  // with non-canonicalisable noise like "Vivência em desenvolvimento front-end".
+  // Short phrases stay (e.g. "spring boot", "react native").
+  return tokens.filter((token) => token.split(/\s+/).length <= 4);
 }
 
 function parseBudgetFromJsonLd(node) {
@@ -244,7 +257,7 @@ function parseViaCss(doc) {
 
   return cards.map((card) => {
     const title = firstText(card, SELECTORS.title);
-    const description = firstText(card, SELECTORS.description);
+    const description = firstText(card, SELECTORS.description) || fallbackDescription(card, title);
     const skills = parseSkills(card);
     const budgetText = firstText(card, SELECTORS.budget);
     const budget = parseBudget(budgetText);

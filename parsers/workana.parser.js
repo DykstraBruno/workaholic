@@ -58,6 +58,15 @@ function firstAttr(root, selectors, attr) {
   return '';
 }
 
+function fallbackDescription(card, title) {
+  const text = (card.textContent || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  if (title && text.startsWith(title)) {
+    return text.slice(title.length).trim().slice(0, 500);
+  }
+  return text.slice(0, 500);
+}
+
 function parseSkills(card) {
   const out = [];
   for (const selector of SELECTORS.skills) {
@@ -128,7 +137,7 @@ function parseWorkana(html) {
 
     return cards.map((card) => {
       const title = firstText(card, SELECTORS.title);
-      const description = firstText(card, SELECTORS.description);
+      const description = firstText(card, SELECTORS.description) || fallbackDescription(card, title);
       const skills = parseSkills(card);
       const budgetText = firstText(card, SELECTORS.budget);
       const budget = parseBudget(budgetText);
