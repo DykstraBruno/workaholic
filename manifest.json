@@ -20,7 +20,11 @@
     "https://br.indeed.com/*",
     "https://*.gupy.io/*",
     "https://www.gupy.io/*",
-    "https://portal.gupy.io/*"
+    "https://portal.gupy.io/*",
+    "https://www.freelancer.com/*",
+    "https://weworkremotely.com/*",
+    "https://www.peopleperhour.com/*",
+    "https://www.guru.com/*"
   ],
 
   "background": {
@@ -55,7 +59,11 @@
         "https://br.indeed.com/*",
         "https://*.gupy.io/*",
         "https://www.gupy.io/*",
-        "https://portal.gupy.io/*"
+        "https://portal.gupy.io/*",
+        "https://www.freelancer.com/*",
+        "https://weworkremotely.com/*",
+        "https://www.peopleperhour.com/*",
+        "https://www.guru.com/*"
       ]
     },
     {

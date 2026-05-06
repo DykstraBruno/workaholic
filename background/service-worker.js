@@ -23,6 +23,10 @@ const SITE_URLS = {
 	linkedin: 'https://www.linkedin.com/jobs/search',
 	indeed: 'https://br.indeed.com/jobs?q=desenvolvedor',
 	gupy: 'https://portal.gupy.io/job-search',
+	freelancer: 'https://www.freelancer.com/jobs/',
+	weworkremotely: 'https://weworkremotely.com/remote-jobs/search',
+	peopleperhour: 'https://www.peopleperhour.com/freelance-jobs',
+	guru: 'https://www.guru.com/d/jobs/',
 };
 
 const SUPPORTED_TAB_PATTERNS = [
@@ -33,6 +37,10 @@ const SUPPORTED_TAB_PATTERNS = [
 	'https://br.indeed.com/*',
 	'https://www.gupy.io/*',
 	'https://portal.gupy.io/*',
+	'https://www.freelancer.com/*',
+	'https://weworkremotely.com/*',
+	'https://www.peopleperhour.com/*',
+	'https://www.guru.com/*',
 ];
 
 const SITE_LABELS = {
@@ -42,6 +50,10 @@ const SITE_LABELS = {
 	linkedin: 'LinkedIn',
 	indeed: 'Indeed',
 	gupy: 'Gupy',
+	freelancer: 'Freelancer',
+	weworkremotely: 'We Work Remotely',
+	peopleperhour: 'PeoplePerHour',
+	guru: 'Guru',
 };
 
 const PARSER_FILES = {
@@ -51,6 +63,10 @@ const PARSER_FILES = {
 	linkedin: 'parsers/linkedin.parser.js',
 	indeed: 'parsers/indeed.parser.js',
 	gupy: 'parsers/gupy.parser.js',
+	freelancer: 'parsers/freelancer.parser.js',
+	weworkremotely: 'parsers/weworkremotely.parser.js',
+	peopleperhour: 'parsers/peopleperhour.parser.js',
+	guru: 'parsers/guru.parser.js',
 };
 
 const PARSER_GLOBALS = {
@@ -60,6 +76,10 @@ const PARSER_GLOBALS = {
 	linkedin: 'parseLinkedIn',
 	indeed: 'parseIndeed',
 	gupy: 'parseGupy',
+	freelancer: 'parseFreelancer',
+	weworkremotely: 'parseWeWorkRemotely',
+	peopleperhour: 'parsePeoplePerHour',
+	guru: 'parseGuru',
 };
 
 const LOGIN_URL_PATTERNS = {
@@ -69,6 +89,10 @@ const LOGIN_URL_PATTERNS = {
 	linkedin: [/\/login/i, /checkpoint/i, /signup/i],
 	indeed: [/\/account\/login/i, /\/auth/i, /\/signin/i],
 	gupy: [/\/login/i, /\/entrar/i, /\/candidate-login/i, /\/candidates\//i],
+	freelancer: [/\/login/i, /\/signup/i],
+	weworkremotely: [],
+	peopleperhour: [/\/login/i, /\/signin/i],
+	guru: [/\/login/i, /\/signin/i],
 };
 
 const AREA_TO_SEARCH_TERM = {
@@ -79,6 +103,19 @@ const AREA_TO_SEARCH_TERM = {
 	data: 'dados',
 	mobile: 'desenvolvedor mobile',
 };
+
+// English equivalents for international platforms
+const AREA_TO_SEARCH_TERM_EN = {
+	development: 'developer',
+	design: 'designer',
+	marketing: 'marketing',
+	writing: 'writer',
+	data: 'data analyst',
+	mobile: 'mobile developer',
+};
+
+// Sites that expect English search terms
+const ENGLISH_SEARCH_SITES = new Set(['freelancer', 'weworkremotely', 'peopleperhour', 'guru']);
 
 // Maps profile area to 99Freelas ?categoria= slug
 const FREELAS99_AREA_TO_CATEGORY = {
@@ -122,6 +159,20 @@ function getProfileSearchTerms(profile) {
 	return [fallback];
 }
 
+function getProfileSearchTermForSite(profile, site) {
+	// User-defined keywords always take precedence, regardless of site language.
+	if (Array.isArray(profile?.keywords) && profile.keywords.length) {
+		const first = String(profile.keywords[0] || '').trim();
+		if (first) return first;
+	}
+
+	const area = String(profile?.area || '').trim().toLowerCase();
+	if (ENGLISH_SEARCH_SITES.has(site)) {
+		return AREA_TO_SEARCH_TERM_EN[area] || area || '';
+	}
+	return AREA_TO_SEARCH_TERM[area] || area || '';
+}
+
 function getProfileSearchTerm(profile) {
 	return getProfileSearchTerms(profile)[0] || '';
 }
@@ -163,6 +214,18 @@ function buildSiteSearchUrl(site, term, profile) {
 			break;
 		case 'gupy':
 			url.pathname = `/job-search/term=${encodeURIComponent(term)}`;
+			break;
+		case 'freelancer':
+			url.searchParams.set('keyword', term);
+			break;
+		case 'weworkremotely':
+			url.searchParams.set('term', term);
+			break;
+		case 'peopleperhour':
+			url.searchParams.set('search', term);
+			break;
+		case 'guru':
+			url.searchParams.set('keyword', term);
 			break;
 		default:
 			break;
@@ -455,7 +518,7 @@ async function ensureAuthTab(site, profile) {
 		return currentFlow;
 	}
 
-	const tab = await createInteractiveTab(buildSiteSearchUrl(site, getProfileSearchTerm(profile), profile));
+	const tab = await createInteractiveTab(buildSiteSearchUrl(site, getProfileSearchTermForSite(profile, site), profile));
 	const flow = {
 		site,
 		tabId: tab.id,
@@ -485,6 +548,15 @@ async function ensureScraperBridge(tabId, site) {
 			target: { tabId },
 			files: [parserFile],
 		});
+		// Always re-inject the bridge when the parser was missing. The bridge
+		// may be an old version (from a previous extension load) that doesn't
+		// include this site in getSiteConfig. Re-injecting replaces its listener
+		// safely via __WORKAHOLIC_BRIDGE_LISTENER cleanup.
+		await chrome.scripting.executeScript({
+			target: { tabId },
+			files: ['content/scraper-bridge-v2.js'],
+		});
+		return;
 	}
 
 	if (result?.bridgeReady) return;
@@ -604,7 +676,13 @@ async function scrapeSiteForTerm(tabId, site, term, profile) {
 }
 
 async function scrapeSiteInTab(tabId, site, profile) {
-	const terms = getProfileSearchTerms(profile);
+	// Use custom keywords as-is; for area fallback, pick the right language per site.
+	let terms;
+	if (Array.isArray(profile?.keywords) && profile.keywords.length) {
+		terms = profile.keywords.map((k) => String(k || '').trim()).filter(Boolean);
+	} else {
+		terms = [getProfileSearchTermForSite(profile, site)].filter(Boolean);
+	}
 	const merged = [];
 	const seenUrls = new Set();
 	const seenTitles = new Set();
