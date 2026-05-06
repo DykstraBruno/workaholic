@@ -1,8 +1,31 @@
 'use strict';
 
 (() => {
-	if (globalThis.__WORKAHOLIC_BRIDGE_READY_V2) {
-		return;
+	function isExtensionAlive() {
+		try { return Boolean(chrome.runtime && chrome.runtime.id); }
+		catch { return false; }
+	}
+
+	function safeSend(payload) {
+		if (!isExtensionAlive()) return;
+		try {
+			chrome.runtime.sendMessage(payload, () => {
+				void chrome.runtime.lastError;
+			});
+		} catch {
+			/* extension reloaded — old context, drop silently */
+		}
+	}
+
+	if (!isExtensionAlive()) return;
+
+	// Remove any previously registered listener before registering a new one.
+	// This makes the bridge safe to re-inject (e.g., after a parser update adds
+	// support for a new site that wasn't in the old bridge's getSiteConfig).
+	if (typeof globalThis.__WORKAHOLIC_BRIDGE_LISTENER === 'function') {
+		try { chrome.runtime.onMessage.removeListener(globalThis.__WORKAHOLIC_BRIDGE_LISTENER); }
+		catch { /* runtime gone */ }
+		globalThis.__WORKAHOLIC_BRIDGE_LISTENER = null;
 	}
 
 	globalThis.__WORKAHOLIC_BRIDGE_READY_V2 = true;
@@ -32,6 +55,22 @@
 			workana: {
 				parse: () => globalThis.parseWorkana,
 				selectors: () => globalThis.WORKANA_SELECTORS,
+			},
+			freelancer: {
+				parse: () => globalThis.parseFreelancer,
+				selectors: () => globalThis.FREELANCER_SELECTORS,
+			},
+			weworkremotely: {
+				parse: () => globalThis.parseWeWorkRemotely,
+				selectors: () => globalThis.WEWORKREMOTELY_SELECTORS,
+			},
+			peopleperhour: {
+				parse: () => globalThis.parsePeoplePerHour,
+				selectors: () => globalThis.PEOPLEPERHOUR_SELECTORS,
+			},
+			guru: {
+				parse: () => globalThis.parseGuru,
+				selectors: () => globalThis.GURU_SELECTORS,
 			},
 		}[site] || null;
 	}
@@ -90,7 +129,7 @@
 		return Array.isArray(jobs) ? jobs : [];
 	}
 
-	chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+	const messageHandler = (message, sender, sendResponse) => {
 		if (message?.type !== 'SCRAPE_SITE') {
 			return;
 		}
@@ -100,14 +139,19 @@
 		(async () => {
 			try {
 				const jobs = await collectJobs(site);
-				chrome.runtime.sendMessage({ site, jobs });
+				safeSend({ site, jobs });
 			} catch (err) {
-				console.error(`[Content Script] Falha ao coletar ${site}:`, err);
-				chrome.runtime.sendMessage({ site, jobs: [] });
+				if (isExtensionAlive()) {
+					console.warn(`[Content Script] Falha ao coletar ${site}:`, err?.message || err);
+				}
+				safeSend({ site, jobs: [] });
 			}
 		})();
 
-		sendResponse({ ok: true });
+		try { sendResponse({ ok: true }); } catch { /* port closed */ }
 		return true;
-	});
+	};
+
+	globalThis.__WORKAHOLIC_BRIDGE_LISTENER = messageHandler;
+	chrome.runtime.onMessage.addListener(messageHandler);
 })();
