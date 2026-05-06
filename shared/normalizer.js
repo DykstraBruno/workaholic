@@ -1,6 +1,6 @@
 'use strict';
 
-const VALID_SITES = ['upwork', 'workana', 'freelas99', 'linkedin', 'indeed', 'gupy'];
+const VALID_SITES = ['upwork', 'workana', 'freelas99', 'linkedin', 'indeed', 'gupy', 'freelancer', 'weworkremotely', 'peopleperhour', 'guru'];
 
 /**
  * Deterministic djb2-based hash over an arbitrary string.
@@ -79,7 +79,11 @@ function normalizeSkills(raw) {
   const seen = new Set();
   const result = [];
   for (const s of raw) {
-    const clean = String(s).toLowerCase().trim();
+    const clean = String(s)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .trim();
     if (clean && !seen.has(clean)) {
       seen.add(clean);
       result.push(clean);
