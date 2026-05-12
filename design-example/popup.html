@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoApply</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #0d0d0f;
+    --surface: #16161a;
+    --surface2:#1e1e24;
+    --border:  #2a2a30;
+    --muted:   #6b7280;
+    --fg:      #f4f4f5;
+    --accent:  #10b981;
+    --danger:  #ef4444;
+    --warn:    #f59e0b;
+    --font:    'IBM Plex Sans', system-ui, sans-serif;
+    --mono:    'IBM Plex Mono', ui-monospace, monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 360px;
+    min-height: 580px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font);
+    font-size: 13px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 0;
+  }
+  .logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+  }
+
+  /* ── Tab nav ── */
+  nav {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    margin: 12px 16px 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  nav button {
+    background: var(--surface);
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    padding: 8px 4px;
+    cursor: pointer;
+    transition: color 120ms, background 120ms;
+    text-transform: uppercase;
+  }
+  nav button:last-child { border-right: none; }
+  nav button.active {
+    background: var(--surface2);
+    color: var(--accent);
+  }
+  nav button:hover:not(.active) { color: var(--fg); background: var(--surface2); }
+
+  /* ── Screens ── */
+  .screen { display: none; flex-direction: column; flex: 1; padding: 16px; gap: 12px; }
+  .screen.active { display: flex; }
+
+  /* ── Section label ── */
+  .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* ── Drop zone ── */
+  .dropzone {
+    border: 1.5px dashed var(--border);
+    border-radius: 8px;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 150ms, background 150ms;
+    background: var(--surface);
+  }
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: #10b98110;
+  }
+  .dropzone svg { display: block; margin: 0 auto 10px; opacity: 0.5; }
+  .dropzone .dz-title { font-size: 13px; font-weight: 500; color: var(--fg); }
+  .dropzone .dz-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .dropzone .dz-sub span { color: var(--accent); cursor: pointer; }
+  #file-input { display: none; }
+
+  /* ── File chip ── */
+  .file-chip {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+  }
+  .file-chip.visible { display: flex; }
+  .file-chip .chip-name {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chip-remove {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+  }
+  .chip-remove:hover { color: var(--danger); }
+
+  /* ── Buttons ── */
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: none;
+    border-radius: 6px;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    padding: 10px 16px;
+    transition: opacity 150ms, background 150ms;
+  }
+  .btn-primary { background: var(--accent); color: #0d0d0f; }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-ghost {
+    background: var(--surface);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--surface2); }
+
+  /* ── Search bar ── */
+  .search-row { display: flex; gap: 8px; }
+  .search-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--fg);
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color 150ms;
+  }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { border-color: var(--accent); }
+
+  /* ── Job list ── */
+  .job-list { display: flex; flex-direction: column; gap: 6px; flex: 1; overflow-y: auto; }
+  .job-list::-webkit-scrollbar { width: 4px; }
+  .job-list::-webkit-scrollbar-track { background: transparent; }
+  .job-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .job-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .job-info { flex: 1; min-width: 0; }
+  .job-title { font-size: 12px; font-weight: 500; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .job-meta { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; letter-spacing: 0.02em; }
+
+  .pill {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+  .pill-success { background: #10b98118; color: var(--accent); }
+  .pill-warn    { background: #f59e0b18; color: var(--warn); }
+  .pill-muted   { background: var(--surface2); color: var(--muted); }
+  .pill-danger  { background: #ef444418; color: var(--danger); }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 24px 0;
+  }
+  .empty-state svg { opacity: 0.3; }
+
+  /* ── Stats row ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .stat-num {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--fg);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  /* ── Settings ── */
+  .settings-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .setting-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-text { flex: 1; }
+  .setting-title { font-size: 12px; font-weight: 500; color: var(--fg); }
+  .setting-desc { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+  /* Toggle */
+  .toggle { position: relative; width: 32px; height: 18px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-track {
+    position: absolute; inset: 0;
+    background: var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background 150ms;
+  }
+  .toggle input:checked + .toggle-track { background: var(--accent); }
+  .toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 150ms;
+  }
+  .toggle input:checked + .toggle-track::after { transform: translateX(14px); }
+
+  /* Select */
+  .setting-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 8px;
+    outline: none;
+    cursor: pointer;
+  }
+  .setting-select:focus { border-color: var(--accent); }
+
+  /* ── Footer ── */
+  footer {
+    padding: 10px 16px 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .footer-ver { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.04em; }
+  .footer-link { font-size: 11px; color: var(--muted); text-decoration: none; }
+  .footer-link:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">AutoApply</span>
+  <span class="status-dot" title="Extension active"></span>
+</header>
+
+<nav>
+  <button class="active" onclick="showScreen('resume')">Resume</button>
+  <button onclick="showScreen('search')">Search</button>
+  <button onclick="showScreen('settings')">Settings</button>
+</nav>
+
+<!-- ── Screen 1: Resume ── -->
+<section class="screen active" id="screen-resume">
+  <span class="label">Your CV / Resume</span>
+
+  <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <div class="dz-title">Drop your resume here</div>
+    <div class="dz-sub">PDF or DOCX · or <span onclick="event.stopPropagation(); document.getElementById('file-input').click()">browse files</span></div>
+  </div>
+  <input type="file" id="file-input" accept=".pdf,.doc,.docx">
+
+  <div class="file-chip" id="file-chip">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+    </svg>
+    <span class="chip-name" id="chip-name">—</span>
+    <button class="chip-remove" onclick="removeFile()" title="Remove">×</button>
+  </div>
+
+  <span class="label" style="margin-top:4px">Profile summary</span>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:12px;font-weight:500;">No resume parsed yet</span>
+      <span class="pill pill-muted">—</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);">Upload a file to extract skills, experience, and job title.</div>
+  </div>
+
+  <button class="btn btn-primary" id="parse-btn" disabled onclick="parseResume()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    Parse Resume
+  </button>
+</section>
+
+<!-- ── Screen 2: Search ── -->
+<section class="screen" id="screen-search">
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num" id="stat-applied">0</div><div class="stat-label">Applied</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-found">0</div><div class="stat-label">Found</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-skipped">0</div><div class="stat-label">Skipped</div></div>
+  </div>
+
+  <div class="search-row">
+    <input class="search-input" id="search-input" type="text" placeholder="Job title, keywords…">
+    <button class="btn btn-primary" style="padding:9px 14px;" onclick="startSearch()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </button>
+  </div>
+
+  <span class="label">Results</span>
+
+  <div class="job-list" id="job-list">
+    <div class="empty-state" id="empty-state">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Search to find matching jobs</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Screen 3: Settings ── -->
+<section class="screen" id="screen-settings">
+  <span class="label">Automation</span>
+  <div class="settings-group">
+    <div class="setting-row">
+      <div class="setting-text">
+        <div class="setting-title">Auto-apply</div>
+        <div class="setting-desc">Submit applications automatically</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-auto"><span class="toggle-track"></span></label>
+    </div>
+    <div class="setting-row">
+      <div class="setting-text">
+        <div class="setting-title">Cover letter</div>
+        <div class="setting-desc">Generate per-job cover letter</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-cover" checked><span class="toggle-track"></span></label>
+    </div>
+    <div class="setting-row">
+      <div class="setting-text">
+        <div class="setting-title">Skip duplicates</div>
+        <div class="setting-desc">Ignore already-applied listings</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-dup" checked><span class="toggle-track"></span></label>
+    </div>
+  </div>
+
+  <span class="label">Preferences</span>
+  <div class="settings-group">
+    <div class="setting-row">
+      <div class="setting-text">
+        <div class="setting-title">Job boards</div>
+        <div class="setting-desc">Platforms to search</div>
+      </div>
+      <select class="setting-select">
+        <option>All boards</option>
+        <option>LinkedIn only</option>
+        <option>Indeed only</option>
+        <option>Custom…</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div class="setting-text">
+        <div class="setting-title">Max applications</div>
+        <div class="setting-desc">Per session limit</div>
+      </div>
+      <select class="setting-select">
+        <option>10</option>
+        <option>25</option>
+        <option>50</option>
+        <option>Unlimited</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div class="setting-text">
+        <div class="setting-title">Match threshold</div>
+        <div class="setting-desc">Minimum relevance score</div>
+      </div>
+      <select class="setting-select">
+        <option>60%</option>
+        <option>70%</option>
+        <option>80%</option>
+        <option>90%</option>
+      </select>
+    </div>
+  </div>
+
+  <button class="btn btn-ghost" style="margin-top:auto;" onclick="clearData()">Clear all data</button>
+</section>
+
+<footer>
+  <span class="footer-ver">v0.1.0</span>
+  <a href="#" class="footer-link">Docs</a>
+</footer>
+
+<script>
+  // ── Navigation ──
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById('screen-' + id).classList.add('active');
+    const idx = { resume: 0, search: 1, settings: 2 }[id];
+    document.querySelectorAll('nav button')[idx].classList.add('active');
+    localStorage.setItem('aa-tab', id);
+  }
+
+  // ── Restore last tab ──
+  const savedTab = localStorage.getItem('aa-tab');
+  if (savedTab) showScreen(savedTab);
+
+  // ── File upload ──
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('file-input');
+  const fileChip  = document.getElementById('file-chip');
+  const chipName  = document.getElementById('chip-name');
+  const parseBtn  = document.getElementById('parse-btn');
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+
+  function setFile(f) {
+    chipName.textContent = f.name;
+    fileChip.classList.add('visible');
+    dropzone.style.display = 'none';
+    parseBtn.disabled = false;
+    localStorage.setItem('aa-file', f.name);
+  }
+
+  function removeFile() {
+    fileChip.classList.remove('visible');
+    dropzone.style.display = '';
+    parseBtn.disabled = true;
+    fileInput.value = '';
+    localStorage.removeItem('aa-file');
+  }
+
+  // Restore file name from storage
+  const savedFile = localStorage.getItem('aa-file');
+  if (savedFile) {
+    chipName.textContent = savedFile;
+    fileChip.classList.add('visible');
+    dropzone.style.display = 'none';
+    parseBtn.disabled = false;
+  }
+
+  function parseResume() {
+    parseBtn.textContent = 'Parsing…';
+    parseBtn.disabled = true;
+    setTimeout(() => {
+      parseBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Parsed';
+      parseBtn.disabled = false;
+    }, 1400);
+  }
+
+  // ── Search & apply ──
+  const MOCK_JOBS = [
+    { title: 'Frontend Engineer', company: 'Vercel', location: 'Remote', status: 'applied' },
+    { title: 'Full-Stack Developer', company: 'Linear', location: 'SF / Remote', status: 'applied' },
+    { title: 'React Developer', company: 'Supabase', location: 'Remote', status: 'pending' },
+    { title: 'UI Engineer', company: 'Figma', location: 'San Francisco', status: 'skipped' },
+    { title: 'Software Engineer', company: 'Stripe', location: 'Remote', status: 'applied' },
+  ];
+
+  const pillMap = {
+    applied: ['pill-success', 'Applied'],
+    pending: ['pill-warn',    'Pending'],
+    skipped: ['pill-muted',   'Skipped'],
+    error:   ['pill-danger',  'Error'],
+  };
+
+  function startSearch() {
+    const q = document.getElementById('search-input').value.trim();
+    if (!q) return;
+    const list = document.getElementById('job-list');
+    const empty = document.getElementById('empty-state');
+    empty.style.display = 'none';
+    list.innerHTML = '';
+
+    let applied = 0, found = 0, skipped = 0;
+
+    MOCK_JOBS.forEach((job, i) => {
+      setTimeout(() => {
+        found++;
+        if (job.status === 'applied') applied++;
+        if (job.status === 'skipped') skipped++;
+        document.getElementById('stat-applied').textContent = applied;
+        document.getElementById('stat-found').textContent = found;
+        document.getElementById('stat-skipped').textContent = skipped;
+
+        const [cls, label] = pillMap[job.status];
+        const el = document.createElement('div');
+        el.className = 'job-item';
+        el.innerHTML = `
+          <div class="job-info">
+            <div class="job-title">${job.title}</div>
+            <div class="job-meta">${job.company} · ${job.location}</div>
+          </div>
+          <span class="pill ${cls}">${label}</span>`;
+        list.appendChild(el);
+      }, i * 280);
+    });
+  }
+
+  // ── Settings ──
+  ['tog-auto','tog-cover','tog-dup'].forEach(id => {
+    const el = document.getElementById(id);
+    const saved = localStorage.getItem(id);
+    if (saved !== null) el.checked = saved === '1';
+    el.addEventListener('change', () => localStorage.setItem(id, el.checked ? '1' : '0'));
+  });
+
+  function clearData() {
+    if (confirm('Clear all AutoApply data?')) {
+      localStorage.clear();
+      location.reload();
+    }
+  }
+</script>
+</body>
+</html>

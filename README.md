@@ -1,6 +1,6 @@
 # Workaholic
 
-Workaholic is a Chrome extension that monitors job and freelance platforms, applies your filters locally, and notifies you only when new jobs match your profile.
+Workaholic is a cross-browser WebExtension for Firefox, Brave, Opera, Chromium, and Chrome that monitors job and freelance platforms, applies your filters locally, and notifies you only when new jobs match your profile.
 
 ---
 
@@ -25,17 +25,36 @@ Workaholic is a Chrome extension that monitors job and freelance platforms, appl
 - Indeed (BR)
 - Gupy
 
-### Install in Chrome (Developer Mode)
+### Install in Chromium Browsers (Chrome, Brave, Opera, Chromium)
 
 1. Download or clone this project.
-2. Open Chrome at `chrome://extensions`.
+2. Open your browser extensions page:
+   `chrome://extensions` on Chrome, Brave, and Chromium
+   `opera://extensions` on Opera
 3. Enable `Developer mode`.
 4. Click `Load unpacked`.
 5. Select the project root folder.
 
+### Install in Firefox (Temporary Add-on)
+
+1. Download or clone this project.
+2. Open Firefox at `about:debugging`.
+3. Click `This Firefox`.
+4. Click `Load Temporary Add-on`.
+5. Select the `manifest.json` file from the project root.
+
+### Firefox Signed Distribution
+
+- `workaholic-firefox-unsigned.xpi` is only a packaged artifact. Release and Beta Firefox builds still require AMO signing before installation.
+- Build unsigned packages with `npm run build`.
+- Sign an unlisted Firefox package with `npm run sign:firefox`.
+- Sign a listed AMO submission with `npm run sign:firefox:listed`.
+- Set `AMO_JWT_ISSUER` and `AMO_JWT_SECRET` in your shell before signing.
+- Update `docs/amo-metadata.json` before the first listed submission on AMO.
+
 ### First-Time Setup
 
-1. Click the extension icon in Chrome.
+1. Click the extension icon in your browser.
 2. Open the `Perfil` tab.
 3. Add your skills.
 4. Select your main area.
@@ -111,9 +130,9 @@ How it works: after importing your resume, select a job to compare `Antes` and `
 2. Click `Reload` on Workaholic.
 3. Open the popup and click `Buscar agora`.
 
-#### Service worker error
+#### Background/service worker error
 
-Reload the extension in `chrome://extensions`. If it persists, open `Errors` and inspect the latest stack trace.
+Reload the extension in `chrome://extensions`, `opera://extensions`, or `about:debugging#/runtime/this-firefox`. If it persists, inspect the latest background error entry for the extension.
 
 #### Too few matched jobs
 
@@ -126,12 +145,15 @@ Reload the extension in `chrome://extensions`. If it persists, open `Errors` and
 
 - Filtering and processing run locally.
 - No external backend is required for matching logic.
-- Profile and job state are stored in Chrome extension storage.
+- Profile and job state are stored in browser extension storage.
 
 ### Development
 
 - Run tests: `npm test`
 - Coverage: `npm run test:coverage`
+- Build distributables: `npm run build`
+- Lint for Firefox/AMO compatibility: `npm run lint:firefox`
+- Sign Firefox for self-distribution: `npm run sign:firefox`
 - Main folders:
   - `background/` scheduling and orchestration
   - `popup/` extension UI
@@ -167,17 +189,36 @@ MIT
 - Indeed (BR)
 - Gupy
 
-### Instalacao no Chrome (Modo Desenvolvedor)
+### Instalacao em navegadores Chromium (Chrome, Brave, Opera, Chromium)
 
 1. Baixe ou clone este projeto.
-2. Abra o Chrome em `chrome://extensions`.
+2. Abra a pagina de extensoes do navegador:
+   `chrome://extensions` no Chrome, Brave e Chromium
+   `opera://extensions` no Opera
 3. Ative `Modo do desenvolvedor`.
 4. Clique em `Carregar sem compactacao`.
 5. Selecione a pasta raiz do projeto.
 
+### Instalação no Firefox (Extensão temporaria)
+
+1. Baixe ou clone este projeto.
+2. Abra o Firefox em `about:debugging`.
+3. Clique em `Este Firefox`.
+4. Clique em `Carregar extensao temporaria`.
+5. Selecione o arquivo `manifest.json` do projeto.
+
+### Distribuição Assinada no Firefox
+
+- `workaholic-firefox-unsigned.xpi` e apenas um pacote gerado. O Firefox Release e Beta ainda exigem assinatura pela AMO antes da instalacao.
+- Gere os pacotes com `npm run build`.
+- Assine para distribuicao propria (unlisted) com `npm run sign:firefox`.
+- Assine para listagem publica na AMO com `npm run sign:firefox:listed`.
+- Defina `AMO_JWT_ISSUER` e `AMO_JWT_SECRET` no shell antes de assinar.
+- Atualize `docs/amo-metadata.json` antes da primeira submissao listada na AMO.
+
 ### Configuracao Inicial
 
-1. Clique no icone da extensao no Chrome.
+1. Clique no icone da extensao no navegador.
 2. Abra a aba `Perfil`.
 3. Cadastre suas habilidades.
 4. Selecione sua area principal.
@@ -253,9 +294,9 @@ Como funciona: apos importar o curriculo, selecione uma vaga para comparar `Ante
 2. Clique em `Recarregar` na extensao Workaholic.
 3. Volte ao popup e clique em `Buscar agora`.
 
-#### Erro de service worker
+#### Erro de background/service worker
 
-Recarregue a extensao em `chrome://extensions`. Se persistir, abra `Erros` e verifique o stack trace mais recente.
+Recarregue a extensao em `chrome://extensions`, `opera://extensions` ou `about:debugging#/runtime/this-firefox`. Se persistir, abra a entrada de erro/background mais recente da extensao.
 
 #### Poucas vagas com match
 
@@ -268,12 +309,15 @@ Recarregue a extensao em `chrome://extensions`. Se persistir, abra `Erros` e ver
 
 - O filtro e o processamento sao locais.
 - Nao ha backend externo obrigatorio para logica de matching.
-- Perfil e estado das vagas ficam no storage da extensao Chrome.
+- Perfil e estado das vagas ficam no storage da extensao do navegador.
 
 ### Desenvolvimento
 
 - Executar testes: `npm test`
 - Cobertura de testes: `npm run test:coverage`
+- Gerar pacotes: `npm run build`
+- Validar compatibilidade Firefox/AMO: `npm run lint:firefox`
+- Assinar pacote Firefox: `npm run sign:firefox`
 - Pastas principais:
   - `background/` orquestracao e agendamento
   - `popup/` interface da extensao

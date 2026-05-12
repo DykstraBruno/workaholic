@@ -2,6 +2,10 @@
   "name": "freelance-job-filter",
   "version": "1.0.0",
   "scripts": {
+    "build": "powershell -ExecutionPolicy Bypass -File .\\pack.ps1",
+    "sign:firefox": "powershell -ExecutionPolicy Bypass -File .\\pack.ps1 -SignFirefox",
+    "sign:firefox:listed": "powershell -ExecutionPolicy Bypass -File .\\pack.ps1 -SignFirefox -Channel listed -AmoMetadataPath .\\docs\\amo-metadata.json",
+    "lint:firefox": "npx web-ext lint --source-dir .",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
@@ -9,7 +13,8 @@
   "devDependencies": {
     "jest": "^29.0.0",
     "jest-environment-node": "^29.0.0",
-    "jsdom": "^22.1.0"
+    "jsdom": "^22.1.0",
+    "web-ext": "^10.1.0"
   },
   "jest": {
     "testEnvironment": "node",

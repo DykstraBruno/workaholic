@@ -1,0 +1,17 @@
+{
+  "categories": {
+    "firefox": [
+      "alerts-updates",
+      "search-tools"
+    ]
+  },
+  "summary": {
+    "en-US": "Tracks job listings across supported sites, filters them locally, and notifies you when a role matches your profile."
+  },
+  "version": {
+    "license": "MIT",
+    "compatibility": [
+      "firefox>=115.0"
+    ]
+  }
+}

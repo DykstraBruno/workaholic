@@ -1,20 +1,18 @@
 'use strict';
 
-(() => {
-	function isExtensionAlive() {
-		try { return Boolean(chrome.runtime && chrome.runtime.id); }
-		catch { return false; }
-	}
-
-	function safeSend(payload) {
-		if (!isExtensionAlive()) return;
-		try {
-			chrome.runtime.sendMessage(payload, () => {
-				void chrome.runtime.lastError;
-			});
-		} catch {
-			/* extension reloaded — old context, drop silently */
+	(() => {
+		function isExtensionAlive() {
+			try { return Boolean(browser.runtime && browser.runtime.id); }
+			catch { return false; }
 		}
+
+		function safeSend(payload) {
+			if (!isExtensionAlive()) return;
+			try {
+				void browser.runtime.sendMessage(payload).catch(() => {});
+			} catch {
+				/* extension reloaded — old context, drop silently */
+			}
 	}
 
 	if (!isExtensionAlive()) return;
@@ -23,7 +21,7 @@
 	// This makes the bridge safe to re-inject (e.g., after a parser update adds
 	// support for a new site that wasn't in the old bridge's getSiteConfig).
 	if (typeof globalThis.__WORKAHOLIC_BRIDGE_LISTENER === 'function') {
-		try { chrome.runtime.onMessage.removeListener(globalThis.__WORKAHOLIC_BRIDGE_LISTENER); }
+		try { browser.runtime.onMessage.removeListener(globalThis.__WORKAHOLIC_BRIDGE_LISTENER); }
 		catch { /* runtime gone */ }
 		globalThis.__WORKAHOLIC_BRIDGE_LISTENER = null;
 	}
@@ -153,5 +151,5 @@
 	};
 
 	globalThis.__WORKAHOLIC_BRIDGE_LISTENER = messageHandler;
-	chrome.runtime.onMessage.addListener(messageHandler);
+	browser.runtime.onMessage.addListener(messageHandler);
 })();
