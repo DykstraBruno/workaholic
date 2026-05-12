@@ -8,48 +8,32 @@ const KEYS = {
   HEALTH_PREFIX: 'health_',
 };
 
+const browserApi = (typeof globalThis !== 'undefined' && globalThis.browser)
+  ? globalThis.browser
+  : (typeof browser !== 'undefined' ? browser : (typeof chrome !== 'undefined' ? chrome : null));
+
 // ---------------------------------------------------------------------------
-// Low-level chrome.storage wrappers
+// Low-level storage wrappers
 // ---------------------------------------------------------------------------
 
 function syncSet(data) {
-  return new Promise((resolve, reject) => {
-    chrome.storage.sync.set(data, () => {
-      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-      else resolve();
-    });
-  });
+  return browserApi.storage.sync.set(data);
 }
 
 function syncGet(keys) {
-  return new Promise((resolve, reject) => {
-    chrome.storage.sync.get(keys, (result) => {
-      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-      else resolve(result);
-    });
-  });
+  return browserApi.storage.sync.get(keys);
 }
 
 function localSet(data) {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.set(data, () => {
-      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-      else resolve();
-    });
-  });
+  return browserApi.storage.local.set(data);
 }
 
 function localGet(keys) {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.get(keys, (result) => {
-      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-      else resolve(result);
-    });
-  });
+  return browserApi.storage.local.get(keys);
 }
 
 // ---------------------------------------------------------------------------
-// Profile  (chrome.storage.sync — syncs across devices)
+// Profile  (browser.storage.sync — syncs across devices)
 // ---------------------------------------------------------------------------
 
 /**
@@ -87,7 +71,7 @@ async function getProfile() {
 }
 
 // ---------------------------------------------------------------------------
-// Seen jobs  (chrome.storage.local)
+// Seen jobs  (browser.storage.local)
 // ---------------------------------------------------------------------------
 
 /**
@@ -123,7 +107,7 @@ async function getSeen() {
 }
 
 // ---------------------------------------------------------------------------
-// Jobs  (chrome.storage.local)
+// Jobs  (browser.storage.local)
 // ---------------------------------------------------------------------------
 
 /**
@@ -145,7 +129,7 @@ async function getJobs() {
 }
 
 // ---------------------------------------------------------------------------
-// Scraper health  (chrome.storage.local)
+// Scraper health  (browser.storage.local)
 // ---------------------------------------------------------------------------
 
 /**
