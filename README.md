@@ -2,6 +2,8 @@
 
 Workaholic is a cross-browser WebExtension for Firefox, Brave, Opera, Chromium, and Chrome that monitors job and freelance platforms, applies your filters locally, and notifies you only when new jobs match your profile.
 
+https://github.com/user-attachments/assets/6e38c157-889b-4906-89df-641f58043450
+
 ---
 
 ## English
@@ -38,6 +40,7 @@ Workaholic is a cross-browser WebExtension for Firefox, Brave, Opera, Chromium, 
 5. Click `Load unpacked`.
 6. Select the extracted folder.
 
+
 **For Developers:**
 
 1. Clone this repository.
@@ -46,6 +49,9 @@ Workaholic is a cross-browser WebExtension for Firefox, Brave, Opera, Chromium, 
 4. Enable `Developer mode`.
 5. Click `Load unpacked`.
 6. Select the project root folder.
+
+
+https://github.com/user-attachments/assets/6ad8c9de-f772-407a-8845-274b20ce00f8
 
 ### Install in Firefox (Temporary Add-on)
 
@@ -56,7 +62,8 @@ Workaholic is a cross-browser WebExtension for Firefox, Brave, Opera, Chromium, 
 3. Open Firefox at `about:debugging`.
 4. Click `This Firefox`.
 5. Click `Load Temporary Add-on`.
-6. Select the `manifest.json` file from the extracted folder.
+6. Select the `.xpi` file from the extracted folder.
+
 
 **For Developers:**
 
@@ -66,7 +73,10 @@ Workaholic is a cross-browser WebExtension for Firefox, Brave, Opera, Chromium, 
 4. Open Firefox at `about:debugging`.
 5. Click `This Firefox`.
 6. Click `Load Temporary Add-on`.
-7. Select `manifest.json` from `dist-firefox` folder.
+7. Select the .xpi file from the build.
+
+
+https://github.com/user-attachments/assets/9041a8aa-9a2b-4b88-93bf-4867037549de
 
 ### Firefox Signed Distribution
 
@@ -236,6 +246,8 @@ MIT
 5. Clique em `Carregar sem compactação`.
 6. Selecione a pasta raiz do projeto.
 
+https://github.com/user-attachments/assets/6ad8c9de-f772-407a-8845-274b20ce00f8
+
 ### Instalação no Firefox (Extensão temporária)
 
 **Para Usuários (Pré-compilado):**
@@ -245,17 +257,9 @@ MIT
 3. Abra o Firefox em `about:debugging`.
 4. Clique em `Este Firefox`.
 5. Clique em `Carregar extensão temporária`.
-6. Selecione o arquivo `manifest.json` da pasta extraída.
+6. Selecione o arquivo `.xpi` .
 
-**Para Desenvolvedores:**
-
-1. Clone este repositório.
-2. Instale dependências: `npm install`
-3. Compile o pacote Firefox: `npm run build`
-4. Abra o Firefox em `about:debugging`.
-5. Clique em `Este Firefox`.
-6. Clique em `Carregar extensão temporária`.
-7. Selecione `manifest.json` da pasta `dist-firefox`.
+https://github.com/user-attachments/assets/9041a8aa-9a2b-4b88-93bf-4867037549de
 
 ### Distribuição Assinada no Firefox
 
