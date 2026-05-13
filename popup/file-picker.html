@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
   <meta charset="UTF-8" />
-  <title>Importar currículo</title>
+  <title>Import Resume</title>
   <script src="../libs/browser-polyfill.js"></script>
   <script src="../libs/pdf.min.js"></script>
   <script src="../libs/mammoth.browser.min.js"></script>
@@ -72,6 +72,7 @@
       border-radius: 50%;
       background: var(--accent);
       box-shadow: 0 0 8px var(--accent);
+      flex-shrink: 0;
     }
 
     /* Drop zone */
@@ -167,15 +168,54 @@
 </head>
 <body>
   <div class="container">
-    <h2>Importar habilidades do currículo</h2>
+    <h2 id="heading"></h2>
     <label for="file-input">
       <span class="label-icon">📄</span>
-      <span class="label-text">Clique para selecionar um arquivo</span>
+      <span class="label-text" id="label-main"></span>
       <span class="label-sub">PDF · DOCX</span>
       <input type="file" id="file-input" accept=".pdf,.docx" />
     </label>
     <p id="status"></p>
   </div>
+
+  <script>
+    const i18n = {
+      'pt-BR': {
+        title:   'Importar currículo',
+        heading: 'Importar habilidades do currículo',
+        label:   'Clique para selecionar um arquivo',
+        htmlLang: 'pt-BR',
+      },
+      'en': {
+        title:   'Import Resume',
+        heading: 'Import resume skills',
+        label:   'Click to select a file',
+        htmlLang: 'en',
+      },
+    };
+
+    function detectLocale() {
+      const langs = (navigator.languages && navigator.languages.length)
+        ? navigator.languages
+        : [navigator.language || 'en'];
+
+      for (const lang of langs) {
+        const l = lang.toLowerCase();
+        if (l === 'pt-br' || l === 'pt_br') return 'pt-BR';
+        if (l === 'pt') return 'pt-BR';
+      }
+      return 'en';
+    }
+
+    const locale  = detectLocale();
+    const strings = i18n[locale];
+
+    document.documentElement.lang                     = strings.htmlLang;
+    document.title                                    = strings.title;
+    document.getElementById('heading').textContent    = strings.heading;
+    document.getElementById('label-main').textContent = strings.label;
+  </script>
+
   <script src="file-picker.js"></script>
 </body>
 </html>
