@@ -48,18 +48,6 @@ function Copy-AppFilesToStage {
         [string]$StageDir
     )
 
-    $polyfillSrc = Join-Path $root 'node_modules\webextension-polyfill\dist\browser-polyfill.min.js'
-    $polyfillDest = Join-Path $StageDir 'libs\browser-polyfill.js'
-    if (Test-Path $polyfillSrc) {
-        $libsDir = Join-Path $StageDir 'libs'
-        if (-not (Test-Path $libsDir)) {
-            New-Item -ItemType Directory -Path $libsDir | Out-Null
-        }
-        Copy-Item -Path $polyfillSrc -Destination $polyfillDest
-    } else {
-        Write-Warning "Mozilla polyfill not found. Run 'npm install' first."
-    }
-
     foreach ($dir in $includeDirs) {
         $src = Join-Path $root $dir
         if (Test-Path $src) {
@@ -76,6 +64,14 @@ function Copy-AppFilesToStage {
         } else {
             Write-Warning "Missing file: $file"
         }
+    }
+
+    $polyfillSrc = Join-Path $root 'node_modules\webextension-polyfill\dist\browser-polyfill.min.js'
+    $polyfillDest = Join-Path $StageDir 'libs\browser-polyfill.js'
+    if (Test-Path $polyfillSrc) {
+        Copy-Item -Path $polyfillSrc -Destination $polyfillDest -Force
+    } else {
+        Write-Warning "Mozilla polyfill not found. Run 'npm install' first."
     }
 }
 

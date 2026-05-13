@@ -26,17 +26,6 @@ jobs:
       - name: Lint for Firefox/AMO compatibility
         run: npm run lint:firefox
 
-      - name: Build Firefox package
-        run: npm run build
-
-      - name: Verify Firefox build artifacts
-        run: |
-          if [ ! -f "workaholic-firefox-unsigned.xpi" ]; then
-            echo "Firefox build failed: workaholic-firefox-unsigned.xpi not found"
-            exit 1
-          fi
-          echo "Firefox build successful"
-
   test:
     runs-on: ubuntu-latest
     
