@@ -47,7 +47,9 @@ const SELECTORS = {
 function toAbsoluteUrl(url, base) {
   if (!url) return '';
   try {
-    return new URL(url, base).href;
+    const fullUrl = new URL(url, base).href;
+    // Handle careerbuildercareers.com domain (used in some job links)
+    return fullUrl.replace('://www.careerbuilder.com', '://www.careerbuildercareers.com');
   } catch {
     return '';
   }
@@ -81,7 +83,7 @@ function extractFromJsonLd(doc) {
               .filter(Boolean).join(' — '),
             skills: [],
             budget: item.baseSalary?.value?.value || null,
-            url: toAbsoluteUrl(url, 'https://www.careerbuilder.com'),
+            url: toAbsoluteUrl(url, 'https://www.careerbuildercareers.com'),
             postedAt: item.datePosted || '',
           });
         }
@@ -105,7 +107,7 @@ function parseCareerBuilder(html) {
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(String(html || ''), 'text/html');
-    const BASE = 'https://www.careerbuilder.com';
+    const BASE = 'https://www.careerbuildercareers.com';
 
     // Try JSON-LD first (most reliable)
     const jsonJobs = extractFromJsonLd(doc);
@@ -130,14 +132,29 @@ function parseCareerBuilder(html) {
         const url = toAbsoluteUrl(rawHref, BASE);
         if (!url) continue;
 
-        // Extract company and location
-        const companyEl = findElement(card, SELECTORS.company);
-        const locationEl = findElement(card, SELECTORS.location);
-        const postedEl = findElement(card, SELECTORS.postedAt);
+        // Extract company, location, and date
+        let company = '';
+        let location = '';
+        let postedAt = '';
 
-        const company = companyEl ? (companyEl.textContent || '').trim() : '';
-        const location = locationEl ? (locationEl.textContent || '').trim() : '';
-        const postedAt = postedEl ? (postedEl.textContent || postedEl.getAttribute('datetime') || '').trim() : '';
+        // For table rows (tr.job-result), data is in sibling <td> cells
+        if (card.tagName === 'TR') {
+          const cells = card.querySelectorAll('td');
+          if (cells.length >= 4) {
+            company = (cells[1].textContent || '').trim();
+            location = (cells[2].textContent || '').trim();
+            postedAt = (cells[3].textContent || '').trim();
+          }
+        } else {
+          // For card layouts, look for nested elements
+          const companyEl = findElement(card, SELECTORS.company);
+          const locationEl = findElement(card, SELECTORS.location);
+          const postedEl = findElement(card, SELECTORS.postedAt);
+
+          company = companyEl ? (companyEl.textContent || '').trim() : '';
+          location = locationEl ? (locationEl.textContent || '').trim() : '';
+          postedAt = postedEl ? (postedEl.textContent || postedEl.getAttribute('datetime') || '').trim() : '';
+        }
 
         const description = [company, location].filter(Boolean).join(' — ');
 
