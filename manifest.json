@@ -24,33 +24,13 @@
     "https://www.freelancer.com/*",
     "https://weworkremotely.com/*",
     "https://www.peopleperhour.com/*",
-    "https://www.guru.com/*"
+    "https://www.guru.com/*",
+    "https://www.careerbuilder.com/*"
   ],
 
   "background": {
-    "scripts": [
-      "shared/browser-api.js",
-      "shared/storage.js",
-      "shared/normalizer.js",
-      "shared/filter.js",
-      "background/service-worker.js"
-    ],
     "service_worker": "background/service-worker.js",
-    "preferred_environment": [
-      "service_worker",
-      "document"
-    ]
-  },
-
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "workaholic@local",
-      "data_collection_permissions": {
-        "required": [
-          "none"
-        ]
-      }
-    }
+    "type": "module"
   },
 
   "action": {
@@ -85,7 +65,8 @@
         "https://www.freelancer.com/*",
         "https://weworkremotely.com/*",
         "https://www.peopleperhour.com/*",
-        "https://www.guru.com/*"
+        "https://www.guru.com/*",
+        "https://www.careerbuilder.com/*"
       ]
     },
     {

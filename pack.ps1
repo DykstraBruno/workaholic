@@ -48,6 +48,18 @@ function Copy-AppFilesToStage {
         [string]$StageDir
     )
 
+    $polyfillSrc = Join-Path $root 'node_modules\webextension-polyfill\dist\browser-polyfill.min.js'
+    $polyfillDest = Join-Path $StageDir 'libs\browser-polyfill.js'
+    if (Test-Path $polyfillSrc) {
+        $libsDir = Join-Path $StageDir 'libs'
+        if (-not (Test-Path $libsDir)) {
+            New-Item -ItemType Directory -Path $libsDir | Out-Null
+        }
+        Copy-Item -Path $polyfillSrc -Destination $polyfillDest
+    } else {
+        Write-Warning "Mozilla polyfill not found. Run 'npm install' first."
+    }
+
     foreach ($dir in $includeDirs) {
         $src = Join-Path $root $dir
         if (Test-Path $src) {
@@ -101,7 +113,7 @@ function Set-ManifestVariant {
             $manifest.browser_specific_settings | Add-Member -NotePropertyName 'gecko' -NotePropertyValue ([pscustomobject]@{})
         }
         if (-not $manifest.browser_specific_settings.gecko.id) {
-            $manifest.browser_specific_settings.gecko | Add-Member -NotePropertyName 'id' -NotePropertyValue 'workaholic@local'
+            $manifest.browser_specific_settings.gecko | Add-Member -NotePropertyName 'id' -NotePropertyValue 'workaholic@dykstrabruno'
         }
         if (-not $manifest.browser_specific_settings.gecko.data_collection_permissions) {
             $manifest.browser_specific_settings.gecko | Add-Member -NotePropertyName 'data_collection_permissions' -NotePropertyValue ([pscustomobject]@{
@@ -110,7 +122,7 @@ function Set-ManifestVariant {
         }
     }
 
-    $manifest | ConvertTo-Json -Depth 100 | Set-Content $manifestPath
+    $manifest | ConvertTo-Json -Depth 100 | Set-Content $manifestPath -Encoding utf8
 }
 
 function New-ArchiveFromStage {
