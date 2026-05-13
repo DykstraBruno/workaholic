@@ -30,7 +30,18 @@
 
   "background": {
     "service_worker": "background/service-worker.js",
+    "scripts": ["background/service-worker.js"],
     "type": "module"
+  },
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "workaholic@dykstrabruno",
+      "strict_min_version": "121.0",
+      "data_collection_permissions": {
+        "required": false
+      }
+    }
   },
 
   "action": {
