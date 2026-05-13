@@ -874,6 +874,17 @@ body {
 
 .profile-resume-import-row { margin-top: 4px; }
 
+/* Hide the raw file input; the <label for> activates it directly.
+   Using opacity+position instead of display:none so it remains
+   focusable for keyboard users. */
+#profile-resume-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Inputs */
 .input {
   flex: 1;
@@ -1112,7 +1123,76 @@ select.input {
   box-shadow: 0 4px 12px rgba(16,185,129,.32) !important;
 }
 
+.btn--stop {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+  border: 1.5px solid var(--color-error-border);
+  font-weight: 700;
+}
+
+.btn--stop:hover:not(:disabled) {
+  background: var(--color-error);
+  color: #fff;
+  border-color: var(--color-error);
+  transform: translateY(-1px);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--color-text-subtle);
+  border: 1.5px solid transparent;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+  transform: translateY(-1px);
+}
+
 .btn--full { width: 100%; }
+
+/* =========================================================
+   Site filter bar
+   ========================================================= */
+.site-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  background: var(--color-bg);
+}
+
+.site-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 11px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.site-filter-chip:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.site-filter-chip--active {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
 
 #save-profile-btn {
   height: 44px;

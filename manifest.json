@@ -3,9 +3,11 @@
   "name": "Workaholic",
   "version": "1.0.0",
   "description": "Filters freelance jobs from multiple platforms based on your skill profile",
+  "minimum_chrome_version": "121",
 
   "permissions": [
     "storage",
+    "unlimitedStorage",
     "alarms",
     "notifications",
     "scripting",
@@ -30,8 +32,13 @@
 
   "background": {
     "service_worker": "background/service-worker.js",
-    "scripts": ["background/service-worker.js"],
-    "type": "module"
+    "scripts": [
+      "libs/browser-polyfill.js",
+      "shared/storage.js",
+      "shared/normalizer.js",
+      "shared/filter.js",
+      "background/service-worker.js"
+    ]
   },
 
   "browser_specific_settings": {

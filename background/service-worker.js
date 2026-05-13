@@ -1,5 +1,7 @@
 'use strict';
 
+// Chrome service worker: load dependencies via importScripts
+// Firefox event page: dependencies already loaded via manifest.json scripts array
 if (typeof importScripts === 'function') {
 	importScripts('/libs/browser-polyfill.js');
 	importScripts('/shared/storage.js', '/shared/normalizer.js', '/shared/filter.js');
@@ -14,6 +16,7 @@ const SCRAPER_TIMEOUT_MS = 30_000;
 const DEFAULT_FETCH_INTERVAL_MINUTES = 1;
 const AUTH_FLOW_KEY = 'authFlow';
 const DIAGNOSTICS_KEY = 'lastFetchDiagnostics';
+const STOP_KEY = 'fetchStopRequested';
 
 // Persistent lock keys — survive service worker restarts
 const LOCK_KEY        = 'fetchCycleLock';   // stores timestamp (ms) when lock was acquired
@@ -611,6 +614,30 @@ async function collectJobsDirectlyFromDom(tabId, site) {
 
 async function scrapeSiteForTerm(tabId, site, term, profile) {
 	try {
+		// Inject proper headers for Cloudflare-protected sites (CareerBuilder)
+		if (site === 'careerbuilder') {
+			await browser.scripting.executeScript({
+				target: { tabId },
+				func: () => {
+					// Override fetch to add proper headers for Cloudflare bypass
+					const originalFetch = window.fetch;
+					window.fetch = function(url, options = {}) {
+						const headers = {
+							'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+							'Accept-Language': 'en-US,en;q=0.9',
+							'Accept-Encoding': 'gzip, deflate, br',
+							'Sec-Fetch-Dest': 'document',
+							'Sec-Fetch-Mode': 'navigate',
+							'Sec-Fetch-Site': 'none',
+							'Sec-Fetch-User': '?1',
+							...options.headers
+						};
+						return originalFetch(url, { ...options, headers });
+					};
+				}
+			});
+		}
+
 		await navigateTabAndWaitForLoad(tabId, buildSiteSearchUrl(site, term, profile));
 		if (await siteRequiresLogin(tabId, site)) {
 			return { jobs: [], loginRequired: true, failed: false };
@@ -891,6 +918,11 @@ async function runFetchCycle() {
 		await localSet({ workerTabId: workerTab.id });
 
 		for (const site of enabledSites) {
+			const stopCheck = await localGet(STOP_KEY);
+			if (stopCheck[STOP_KEY]) {
+				await localSet({ [STOP_KEY]: false });
+				break;
+			}
 			const result = await scrapeSiteInTab(workerTab.id, site, profile);
 			perSiteResults.push(result);
 		}
@@ -1049,8 +1081,42 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 	if (!message || !message.type) return;
 
 	if (message.type === 'FETCH_NOW') {
-		runFetchCycle()
+		localSet({ [STOP_KEY]: false })
+			.then(async () => {
+				// Restart the alarm when fetch is manually triggered
+				const profile = await getProfile();
+				const interval = profile?.fetchInterval || DEFAULT_FETCH_INTERVAL_MINUTES;
+				await setupAlarm(interval);
+				return runFetchCycle();
+			})
 			.then((result) => sendResponse({ ok: true, result }))
+			.catch((error) => sendResponse({ ok: false, error: error.message }));
+		return true;
+	}
+
+	if (message.type === 'STOP_FETCH') {
+		localGet('workerTabId')
+			.then(async (r) => {
+				// Set stop flag to halt current cycle
+				await localSet({ [STOP_KEY]: true });
+				
+				// Clear the alarm to stop future cycles
+				await browser.alarms.clear(ALARM_NAME);
+				
+				// Close worker tab and release lock
+				if (r.workerTabId != null) {
+					await closeTabQuietly(r.workerTabId);
+					await localSet({ workerTabId: null, [LOCK_KEY]: null });
+				}
+				sendResponse({ ok: true });
+			})
+			.catch((error) => sendResponse({ ok: false, error: error.message }));
+		return true;
+	}
+
+	if (message.type === 'CLEAR_CACHE') {
+		browser.storage.local.remove(['jobs', 'lastFetch', 'lastFetchDiagnostics', 'seen_jobs', LOCK_KEY, STOP_KEY, 'workerTabId'])
+			.then(() => sendResponse({ ok: true }))
 			.catch((error) => sendResponse({ ok: false, error: error.message }));
 		return true;
 	}

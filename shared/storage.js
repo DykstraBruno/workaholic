@@ -8,9 +8,18 @@ const KEYS = {
   HEALTH_PREFIX: 'health_',
 };
 
-const browserApi = (typeof globalThis !== 'undefined' && globalThis.browser)
-  ? globalThis.browser
-  : (typeof browser !== 'undefined' ? browser : (typeof chrome !== 'undefined' ? chrome : null));
+// Detect browser API
+// In Chrome service workers: browser comes from importScripts('browser-polyfill.js')
+// In Firefox event pages: browser is already available globally
+let browserApi;
+if (typeof browser !== 'undefined' && browser) {
+  browserApi = browser;
+} else if (typeof chrome !== 'undefined' && chrome) {
+  browserApi = chrome;
+} else {
+  // This should never happen in a properly configured extension
+  throw new Error('storage.js: No browser API available. Check manifest configuration.');
+}
 
 // ---------------------------------------------------------------------------
 // Low-level storage wrappers
@@ -168,6 +177,7 @@ if (typeof module !== 'undefined' && module.exports) {
   };
 }
 
+// Export to globalThis for service worker/event page usage
 if (typeof globalThis !== 'undefined') {
   Object.assign(globalThis, {
     saveProfile,
