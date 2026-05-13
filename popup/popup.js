@@ -15,7 +15,7 @@ const KEYS = {
   APPLIED_JOBS:     'appliedJobs',
 };
 
-const SITES = ['upwork', 'workana', 'freelas99', 'linkedin', 'indeed', 'gupy', 'freelancer', 'weworkremotely', 'peopleperhour', 'guru'];
+const SITES = ['upwork', 'workana', 'freelas99', 'linkedin', 'indeed', 'gupy', 'freelancer', 'weworkremotely', 'peopleperhour', 'guru', 'careerbuilder'];
 
 // ---------------------------------------------------------------------------
 // Internationalization
@@ -197,6 +197,7 @@ const SITE_LABELS = {
   weworkremotely: 'We Work Remotely',
   peopleperhour:  'PeoplePerHour',
   guru:           'Guru',
+  careerbuilder:  'CareerBuilder',
 };
 
 // ---------------------------------------------------------------------------

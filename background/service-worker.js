@@ -1,7 +1,7 @@
 'use strict';
 
 if (typeof importScripts === 'function') {
-	importScripts('/shared/browser-api.js');
+	importScripts('/libs/browser-polyfill.js');
 	importScripts('/shared/storage.js', '/shared/normalizer.js', '/shared/filter.js');
 }
 
@@ -30,6 +30,7 @@ const SITE_URLS = {
 	weworkremotely: 'https://weworkremotely.com/remote-jobs/search',
 	peopleperhour: 'https://www.peopleperhour.com/freelance-jobs',
 	guru: 'https://www.guru.com/d/jobs/',
+	careerbuilder: 'https://www.careerbuilder.com/jobs',
 };
 
 const SUPPORTED_TAB_PATTERNS = [
@@ -44,6 +45,7 @@ const SUPPORTED_TAB_PATTERNS = [
 	'https://weworkremotely.com/*',
 	'https://www.peopleperhour.com/*',
 	'https://www.guru.com/*',
+	'https://www.careerbuilder.com/*',
 ];
 
 const SITE_LABELS = {
@@ -57,6 +59,7 @@ const SITE_LABELS = {
 	weworkremotely: 'We Work Remotely',
 	peopleperhour: 'PeoplePerHour',
 	guru: 'Guru',
+	careerbuilder: 'CareerBuilder',
 };
 
 const PARSER_FILES = {
@@ -70,6 +73,7 @@ const PARSER_FILES = {
 	weworkremotely: 'parsers/weworkremotely.parser.js',
 	peopleperhour: 'parsers/peopleperhour.parser.js',
 	guru: 'parsers/guru.parser.js',
+	careerbuilder: 'parsers/careerbuilder.parser.js',
 };
 
 const PARSER_GLOBALS = {
@@ -83,6 +87,7 @@ const PARSER_GLOBALS = {
 	weworkremotely: 'parseWeWorkRemotely',
 	peopleperhour: 'parsePeoplePerHour',
 	guru: 'parseGuru',
+	careerbuilder: 'parseCareerBuilder',
 };
 
 const LOGIN_URL_PATTERNS = {
@@ -96,6 +101,7 @@ const LOGIN_URL_PATTERNS = {
 	weworkremotely: [],
 	peopleperhour: [/\/login/i, /\/signin/i],
 	guru: [/\/login/i, /\/signin/i],
+	careerbuilder: [/\/login/i, /\/account/i],
 };
 
 const AREA_TO_SEARCH_TERM = {
@@ -118,7 +124,7 @@ const AREA_TO_SEARCH_TERM_EN = {
 };
 
 // Sites that expect English search terms
-const ENGLISH_SEARCH_SITES = new Set(['freelancer', 'weworkremotely', 'peopleperhour', 'guru']);
+const ENGLISH_SEARCH_SITES = new Set(['freelancer', 'weworkremotely', 'peopleperhour', 'guru', 'careerbuilder']);
 
 // Maps profile area to 99Freelas ?categoria= slug
 const FREELAS99_AREA_TO_CATEGORY = {
@@ -497,7 +503,7 @@ async function ensureScraperBridge(tabId, site) {
 	if (!result?.parserReady) {
 		await browser.scripting.executeScript({
 			target: { tabId },
-			files: ['shared/browser-api.js', parserFile],
+			files: ['libs/browser-polyfill.js', parserFile],
 		});
 		// Always re-inject the bridge when the parser was missing. The bridge
 		// may be an old version (from a previous extension load) that doesn't
@@ -505,7 +511,7 @@ async function ensureScraperBridge(tabId, site) {
 		// safely via __WORKAHOLIC_BRIDGE_LISTENER cleanup.
 		await browser.scripting.executeScript({
 			target: { tabId },
-			files: ['shared/browser-api.js', 'content/scraper-bridge-v2.js'],
+			files: ['libs/browser-polyfill.js', 'content/scraper-bridge-v2.js'],
 		});
 		return;
 	}
@@ -515,7 +521,7 @@ async function ensureScraperBridge(tabId, site) {
 	await browser.scripting.executeScript({
 		target: { tabId },
 		files: [
-			'shared/browser-api.js',
+			'libs/browser-polyfill.js',
 			'content/scraper-bridge-v2.js',
 		],
 	});

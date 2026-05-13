@@ -1,18 +1,18 @@
 'use strict';
 
-	(() => {
-		function isExtensionAlive() {
-			try { return Boolean(browser.runtime && browser.runtime.id); }
-			catch { return false; }
-		}
+(() => {
+	function isExtensionAlive() {
+		try { return Boolean(browser.runtime && browser.runtime.id); }
+		catch { return false; }
+	}
 
-		function safeSend(payload) {
-			if (!isExtensionAlive()) return;
-			try {
-				void browser.runtime.sendMessage(payload).catch(() => {});
-			} catch {
-				/* extension reloaded — old context, drop silently */
-			}
+	function safeSend(payload) {
+		if (!isExtensionAlive()) return;
+		try {
+			void browser.runtime.sendMessage(payload).catch(() => {});
+		} catch {
+			/* extension reloaded — old context, drop silently */
+		}
 	}
 
 	if (!isExtensionAlive()) return;
@@ -69,6 +69,10 @@
 			guru: {
 				parse: () => globalThis.parseGuru,
 				selectors: () => globalThis.GURU_SELECTORS,
+			},
+			careerbuilder: {
+				parse: () => globalThis.parseCareerBuilder,
+				selectors: () => globalThis.CAREERBUILDER_SELECTORS,
 			},
 		}[site] || null;
 	}
