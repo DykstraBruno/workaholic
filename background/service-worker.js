@@ -1027,8 +1027,9 @@ browser.runtime.onInstalled.addListener(async () => {
 		profile = createDefaultProfile();
 		await saveProfile(profile);
 	}
-	const interval = profile?.fetchInterval || DEFAULT_FETCH_INTERVAL_MINUTES;
-	await setupAlarm(interval);
+
+	await browser.alarms.clear(ALARM_NAME);
+	await localSet({ [STOP_KEY]: false, [LOCK_KEY]: null, workerTabId: null });
 	await reloadSupportedTabs();
 });
 
