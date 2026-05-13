@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Importar currículo</title>
+  <script src="../libs/browser-polyfill.js"></script>
+  <script src="../libs/pdf.min.js"></script>
+  <script src="../libs/mammoth.browser.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #0A0A0B;
+      --surface:   #111114;
+      --border:    #252528;
+      --border-active: #5B5BF6;
+      --accent:    #5B5BF6;
+      --accent-dim: rgba(91,91,246,.12);
+      --text-primary: #F0F0F5;
+      --text-muted:   #6B6B80;
+      --ok:   #34D399;
+      --err:  #F87171;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'IBM Plex Sans', system-ui, sans-serif;
+      font-size: 13px;
+      color: var(--text-primary);
+      background: var(--bg);
+      padding: 20px;
+      min-width: 300px;
+    }
+
+    /* Subtle grid texture on bg */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(91,91,246,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(91,91,246,.04) 1px, transparent 1px);
+      background-size: 24px 24px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+    }
+
+    h2 {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h2::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    /* Drop zone */
+    label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 28px 20px;
+      border: 1.5px dashed var(--border);
+      border-radius: 10px;
+      text-align: center;
+      color: var(--text-muted);
+      background: var(--surface);
+      transition: border-color .2s, background .2s, box-shadow .2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    label::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, var(--accent-dim) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity .25s;
+    }
+
+    label:hover {
+      border-color: var(--border-active);
+      background: #13131a;
+      box-shadow: 0 0 24px rgba(91,91,246,.15), inset 0 0 0 1px rgba(91,91,246,.08);
+    }
+
+    label:hover::after { opacity: 1; }
+
+    .label-icon {
+      font-size: 28px;
+      line-height: 1;
+      filter: drop-shadow(0 0 6px rgba(91,91,246,.5));
+      position: relative;
+      z-index: 1;
+    }
+
+    .label-text {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-primary);
+      position: relative;
+      z-index: 1;
+    }
+
+    .label-sub {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .05em;
+      color: var(--text-muted);
+      position: relative;
+      z-index: 1;
+    }
+
+    input[type=file] { display: none; }
+
+    /* Status */
+    #status {
+      margin-top: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .03em;
+      color: var(--text-muted);
+      min-height: 18px;
+      padding: 0 2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #status:not(:empty)::before {
+      content: '›';
+      color: var(--accent);
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    #status.ok  { color: var(--ok); }
+    #status.err { color: var(--err); }
+
+    #status.ok::before  { color: var(--ok); }
+    #status.err::before { color: var(--err); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Importar habilidades do currículo</h2>
+    <label for="file-input">
+      <span class="label-icon">📄</span>
+      <span class="label-text">Clique para selecionar um arquivo</span>
+      <span class="label-sub">PDF · DOCX</span>
+      <input type="file" id="file-input" accept=".pdf,.docx" />
+    </label>
+    <p id="status"></p>
+  </div>
+  <script src="file-picker.js"></script>
+</body>
+</html>
