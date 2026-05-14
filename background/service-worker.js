@@ -27,13 +27,13 @@ const SITE_URLS = {
 	workana: 'https://www.workana.com/jobs',
 	freelas99: 'https://www.99freelas.com.br/projects',
 	linkedin: 'https://www.linkedin.com/jobs/search',
-	indeed: 'https://br.indeed.com/jobs?q=desenvolvedor',
+	indeed: 'https://br.indeed.com/jobs',
 	gupy: 'https://portal.gupy.io/job-search',
 	freelancer: 'https://www.freelancer.com/jobs/',
 	weworkremotely: 'https://weworkremotely.com/remote-jobs/search',
 	peopleperhour: 'https://www.peopleperhour.com/freelance-jobs',
 	guru: 'https://www.guru.com/d/jobs/',
-	careerbuilder: 'https://www.careerbuilder.com/jobs',
+	careerbuilder: 'https://www.careerbuilder.com/en-US/search',
 };
 
 const SUPPORTED_TAB_PATTERNS = [
@@ -156,37 +156,89 @@ function getSiteUrl(site) {
 	return new URL(SITE_URLS[site]);
 }
 
-function getProfileSearchTerms(profile) {
-	const terms = [];
-	if (Array.isArray(profile?.keywords)) {
-		for (const raw of profile.keywords) {
-			const value = String(raw || '').trim();
-			if (value) terms.push(value);
-		}
-	}
-	if (terms.length) return terms;
+function getProfileKeywords(profile, site) {
+  const keywords = Array.isArray(profile?.keywords)
+    ? profile.keywords.map((k) => String(k || '').trim()).filter(Boolean)
+    : [];
+
+  if (keywords.length) return keywords;
+
+  const area = String(profile?.area || '').trim().toLowerCase();
+  if (!area) return [];
+
+  return ENGLISH_SEARCH_SITES.has(site)
+    ? [AREA_TO_SEARCH_TERM_EN[area] || area]
+    : [AREA_TO_SEARCH_TERM[area] || area];
+}
+function getSearchTermsForSite(profile, site) {
+	const syntax = SEARCH_SYNTAX[site] || SEARCH_SYNTAX.default;
+
+	const keywords = Array.isArray(profile?.keywords)
+		? profile.keywords.map((k) => String(k || '').trim()).filter(Boolean)
+		: [];
 
 	const area = String(profile?.area || '').trim().toLowerCase();
-	const fallback = AREA_TO_SEARCH_TERM[area] || area || '';
-	return [fallback];
+	const fallback = ENGLISH_SEARCH_SITES.has(site)
+		? (AREA_TO_SEARCH_TERM_EN[area] || area || '')
+		: (AREA_TO_SEARCH_TERM[area] || area || '');
+
+	const source = keywords.length ? keywords : (fallback ? [fallback] : []);
+	if (!source.length) return [];
+
+	switch (syntax.mode) {
+
+		case 'combined_and_single': {
+			const combined = source.join(' ');
+			return [combined, ...source];
+		}
+	
+		case 'boolean_or_quoted':
+			return [`${source.map((t) => `"${t}"`).join(' OR ')}`];
+
+		case 'boolean_or_raw':
+			return [source.join(' OR ')];
+
+		case 'keyword_by_keyword_path':
+		case 'keyword_by_keyword_quoted':
+			return source;
+
+		case 'single':
+			return source;
+
+		default:
+			return [source[0]];
+		}
 }
 
-function getProfileSearchTermForSite(profile, site) {
-	// User-defined keywords always take precedence, regardless of site language.
-	if (Array.isArray(profile?.keywords) && profile.keywords.length) {
-		const first = String(profile.keywords[0] || '').trim();
-		if (first) return first;
-	}
+const SEARCH_SYNTAX = {
+	default: { mode: 'single' },
 
-	const area = String(profile?.area || '').trim().toLowerCase();
-	if (ENGLISH_SEARCH_SITES.has(site)) {
-		return AREA_TO_SEARCH_TERM_EN[area] || area || '';
-	}
-	return AREA_TO_SEARCH_TERM[area] || area || '';
+	workana: { mode: 'combined_and_single' },
+	weworkremotely: { mode: 'combined_and_single' },
+	peopleperhour: { mode: 'combined_and_single' },
+
+	freelancer: { mode: 'single' },
+	linkedin: { mode: 'boolean_or_quoted' },
+	indeed: { mode: 'boolean_or_quoted' },
+
+	gupy: { mode: 'combined_and_single' },
+
+	guru: { mode: 'keyword_by_keyword_path' },
+	freelas99: { mode: 'keyword_by_keyword_quoted' },
+
+	upwork: { mode: 'combined_and_single' },
+};
+
+function getProfileSearchTermForSite(profile, site) {
+	const terms = getSearchTermsForSite(profile, site);
+
+	if (!terms.length) return '';
+
+	return terms[0];
 }
 
 function getProfileSearchTerm(profile) {
-	return getProfileSearchTerms(profile)[0] || '';
+	return getProfileSearchTermForSite(profile, '');
 }
 
 function buildSiteSearchUrl(site, term, profile) {
@@ -196,50 +248,72 @@ function buildSiteSearchUrl(site, term, profile) {
 		if (site === 'gupy') {
 			url.pathname = '/job-search/sortBy=publishedDate';
 		}
+
 		if (site === 'freelas99') {
 			const area = String(profile?.area || 'development').toLowerCase();
-			const category = FREELAS99_AREA_TO_CATEGORY[area] || 'web-mobile-e-software';
+			const category =
+				FREELAS99_AREA_TO_CATEGORY[area] ||
+				'web-mobile-e-software';
+
 			url.searchParams.set('categoria', category);
 		}
+
 		return url.toString();
 	}
 
+	const normalizedTerm = canonicalize(term);
+
 	switch (site) {
 		case 'upwork':
-			url.searchParams.set('q', term);
+			url.searchParams.set('q', normalizedTerm);
 			break;
+
 		case 'workana':
-			url.searchParams.set('query', term);
+			url.searchParams.set('query', normalizedTerm);
 			break;
+
 		case 'freelas99': {
 			const area = String(profile?.area || 'development').toLowerCase();
-			const category = FREELAS99_AREA_TO_CATEGORY[area] || 'web-mobile-e-software';
+
+			const category =
+				FREELAS99_AREA_TO_CATEGORY[area] ||
+				'web-mobile-e-software';
+
 			url.searchParams.set('categoria', category);
-			url.searchParams.set('q', term);
+			url.searchParams.set('q', normalizedTerm);
 			break;
 		}
+
 		case 'linkedin':
-			url.searchParams.set('keywords', term);
+			url.searchParams.set('keywords', normalizedTerm);
 			break;
+
 		case 'indeed':
-			url.searchParams.set('q', term);
+			url.searchParams.set('q', normalizedTerm);
 			break;
+
 		case 'gupy':
-			url.pathname = `/job-search/term=${encodeURIComponent(term)}`;
+			url.pathname = `/job-search/term=${normalizedTerm}`;
 			break;
+
 		case 'freelancer':
-			url.searchParams.set('keyword', term);
+			url.searchParams.set('keyword', normalizedTerm);
 			break;
+
 		case 'weworkremotely':
-			url.searchParams.set('term', term);
+			url.searchParams.set('term', normalizedTerm);
 			break;
+
 		case 'peopleperhour':
-			url.searchParams.set('search', term);
+			url.searchParams.set('search', normalizedTerm);
 			break;
+
 		case 'guru':
-			url.searchParams.set('keyword', term);
+			url.pathname = `/d/jobs/skill/${normalizedTerm}/`;
 			break;
-		default:
+
+		case 'careerbuilder':
+			url.searchParams.set('keywords', normalizedTerm);
 			break;
 	}
 
@@ -661,41 +735,53 @@ async function scrapeSiteForTerm(tabId, site, term, profile) {
 }
 
 async function scrapeSiteInTab(tabId, site, profile) {
-	// Use custom keywords as-is; for area fallback, pick the right language per site.
-	let terms;
-	if (Array.isArray(profile?.keywords) && profile.keywords.length) {
-		terms = profile.keywords.map((k) => String(k || '').trim()).filter(Boolean);
-	} else {
-		terms = [getProfileSearchTermForSite(profile, site)].filter(Boolean);
+	const terms = getSearchTermsForSite(profile, site);
+
+	// fallback
+	if (!terms.length) {
+		const result = await scrapeSiteForTerm(tabId, site, '', profile);
+
+		return {
+			site,
+			jobs: result.jobs || [],
+			failed: Boolean(result.failed),
+			loginRequired: Boolean(result.loginRequired),
+		};
 	}
-	const merged = [];
-	const seenUrls = new Set();
-	const seenTitles = new Set();
+
+	const allJobs = [];
 	let failed = false;
+	let loginRequired = false;
 
 	for (const term of terms) {
-		const result = await scrapeSiteForTerm(tabId, site, term, profile);
-		failed = failed || Boolean(result.failed);
+		const result = await scrapeSiteForTerm(
+			tabId,
+			site,
+			term,
+			profile
+		);
 
 		if (result.loginRequired) {
-			// Login blocks all subsequent searches for this site this cycle.
-			return { site, jobs: [], failed: false, loginRequired: true };
+			loginRequired = true;
+			break;
 		}
 
-		for (const job of result.jobs || []) {
-			const urlKey = canonicalizeJobUrl(job?.url || '');
-			const titleKey = canonicalizeJobTitle(job?.title || '');
-			if (urlKey && seenUrls.has(urlKey)) continue;
-			if (titleKey && seenTitles.has(titleKey)) continue;
-			if (urlKey) seenUrls.add(urlKey);
-			if (titleKey) seenTitles.add(titleKey);
-			merged.push(job);
+		if (result.failed) {
+			failed = true;
+		}
+
+		if (Array.isArray(result.jobs)) {
+			allJobs.push(...result.jobs);
 		}
 	}
 
-	return { site, jobs: merged, failed, loginRequired: false };
+	return {
+		site,
+		jobs: dedupeJobs(allJobs),
+		failed,
+		loginRequired,
+	};
 }
-
 // ---------------------------------------------------------------------------
 // Notifications + badge
 // ---------------------------------------------------------------------------
@@ -834,23 +920,62 @@ function canonicalizeJobTitle(rawTitle) {
 		.trim();
 }
 
+function normalizeJobFingerprintText(value) {
+	return String(value || '')
+		.toLowerCase()
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.replace(/[^a-z0-9+#.]+/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+function getJobCompany(job) {
+	return job?.company || job?.companyName || job?.employer || job?.organization || '';
+}
+
+function getJobLocation(job) {
+	return job?.location || job?.city || job?.region || job?.country || '';
+}
+
+function buildJobFingerprint(job) {
+	const siteKey = String(job?.site || '').trim().toLowerCase();
+	const idKey = String(job?.id || '').trim();
+	const urlKey = canonicalizeJobUrl(job?.url || '');
+
+	if (idKey) {
+		return `id::${siteKey}::${idKey}`;
+	}
+
+	if (urlKey) {
+		return `url::${siteKey}::${urlKey}`;
+	}
+
+	const title = normalizeJobFingerprintText(job?.title || '');
+	const company = normalizeJobFingerprintText(getJobCompany(job));
+	const location = normalizeJobFingerprintText(getJobLocation(job));
+
+	const parts = [title, company, location].filter(Boolean);
+
+	if (parts.length >= 2) {
+		return `sig::${siteKey}::${parts.join('::')}`;
+	}
+
+	if (title) {
+		return `title::${siteKey}::${title}`;
+	}
+
+	return '';
+}
+
 function dedupeJobs(jobs) {
-	const seenByUrl = new Set();
-	const seenByTitle = new Set();
+	const seen = new Set();
 	const out = [];
 
 	for (const job of jobs || []) {
-		const siteKey = String(job?.site || '').trim().toLowerCase();
-		const urlKey = canonicalizeJobUrl(job?.url || '');
-		const titleKey = canonicalizeJobTitle(job?.title || '');
-		const titleFingerprint = titleKey ? `${siteKey}::${titleKey}` : '';
-		const urlFingerprint = urlKey ? `${siteKey}::${urlKey}` : '';
-
-		if (urlFingerprint && seenByUrl.has(urlFingerprint)) continue;
-		if (titleFingerprint && seenByTitle.has(titleFingerprint)) continue;
-
-		if (urlFingerprint) seenByUrl.add(urlFingerprint);
-		if (titleFingerprint) seenByTitle.add(titleFingerprint);
+		const fingerprint = buildJobFingerprint(job);
+		if (fingerprint && seen.has(fingerprint)) continue;
+		if (fingerprint) seen.add(fingerprint);
 		out.push(job);
 	}
 
@@ -958,13 +1083,67 @@ async function runFetchCycle() {
 		await updateSiteHealth(result.site, result.failed, rawJobs.length);
 	}
 
-	const filtered = filterJobs(normalized, profile);
+	function getProfileTerms(profile) {
+		const rawTerms = Array.isArray(profile?.skills) && profile.skills.length
+			? profile.skills
+			: (Array.isArray(profile?.keywords) ? profile.keywords : []);
+
+		return rawTerms
+			.map((t) => String(t || '').trim())
+			.filter(Boolean);
+	}
+
+	function containsSearchTerm(text, terms) {
+		const haystack = normalizeForTextMatch(text);
+
+		return terms.some((term) => {
+			const needle = normalizeForTextMatch(term);
+
+			if (!needle) return false;
+
+			// direct match
+			if (haystack.includes(needle)) {
+				return true;
+			}
+
+			// flexible token match
+			const words = needle.split(/\s+/).filter(Boolean);
+
+			if (!words.length) return false;
+
+			return words.every((word) => haystack.includes(word));
+		});
+	}
+
+	const profileTerms = getProfileTerms(profile);
+
+	const strictFiltered = profileTerms.length
+	? normalized.filter((job) => {
+			const searchableText = [
+				job.title || '',
+				job.description || '',
+				Array.isArray(job.skills) ? job.skills.join(' ') : (job.skills || ''),
+				job.category || '',
+				Array.isArray(job.tags) ? job.tags.join(' ') : (job.tags || ''),
+			].join(' ');
+
+			// Allow semantic partial matches
+			const matched = containsSearchTerm(searchableText, profileTerms);
+
+			// Keep high-score jobs even without direct keyword hit
+			return matched || (job.score || 0) >= 55;
+		})
+	: normalized;
+
+	const filtered = filterJobs(strictFiltered, profile);
 	const dedupedFiltered = dedupeJobs(filtered);
+
 	for (const job of dedupedFiltered) {
 		if (siteDiagnostics[job.site]) {
 			siteDiagnostics[job.site].matchedJobs++;
 		}
 	}
+
 
 	const diagnostics = {
 		generatedAt: new Date().toISOString(),

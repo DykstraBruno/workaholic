@@ -64,6 +64,7 @@ const SYNONYMS = {
   tableau:    ['tableau'],
   figma:      ['figma'],
   photoshop:  ['photoshop', 'illustrator', 'adobe xd', 'adobe illustrator', 'adobe photoshop'],
+  uxdesign:   ['ux', 'ui', 'ui/ux', 'ux/ui', 'user experience', 'user interface', 'ux design', 'ui design', 'product design', 'web design', 'graphic design', 'designer', 'design'],
   wordpress:  ['wordpress', 'wp', 'elementor'],
   shopify:    ['shopify'],
   salesforce: ['salesforce', 'crm salesforce'],
@@ -88,6 +89,9 @@ const SYNONYMS = {
   firebase:   ['firebase', 'firestore', 'supabase'],
   ddd:        ['ddd', 'domain driven design', 'clean architecture', 'hexagonal', 'arquitetura limpa'],
   solid:      ['solid', 'design patterns', 'tdd', 'bdd'],
+  marketing:  ['marketing', 'marketing digital', 'growth', 'seo', 'sem', 'google ads', 'facebook ads', 'meta ads', 'trafego pago', 'inbound', 'outbound', 'email marketing', 'crm', 'branding', 'social media', 'gestao de trafego'],
+  writing:    ['redator', 'redacao', 'copywriter', 'copywriting', 'content writer', 'escrita', 'escritor', 'jornalista', 'jornalismo', 'blogger', 'blog', 'producao de conteudo', 'content creation', 'technical writer', 'ux writer'],
+  dataanalyst: ['analista de dados', 'data analyst', 'data science', 'data scientist', 'cientista de dados', 'engenheiro de dados', 'data engineer', 'business intelligence', 'analise de dados', 'dados', 'bi analyst'],
 };
 
 const MIN_MATCH_SCORE = 12;
@@ -198,18 +202,45 @@ function textMentionsSkill(text, skill) {
 function calcScore(jobOrSkills, profileSkills) {
   if (!profileSkills || profileSkills.length === 0) return 0;
 
-  const jobSkills = Array.isArray(jobOrSkills) ? jobOrSkills : jobOrSkills?.skills;
+  const jobSkills = Array.isArray(jobOrSkills)
+    ? jobOrSkills
+    : jobOrSkills?.skills;
+
   const jobSet = canonicalSet(jobSkills);
   const profileSet = canonicalSet(profileSkills);
+
   const matches = countMatches(jobOrSkills, profileSkills);
 
   if (matches === 0) return 0;
 
-  const jobCoverage = jobSet.size > 0 ? (matches / jobSet.size) * 100 : 0;
-  const profileCoverage = profileSet.size > 0 ? (matches / profileSet.size) * 100 : 0;
-  const matchRatio = Math.min(matches, 3) / 3 * 100;
+  const jobCoverage =
+    jobSet.size > 0 ? matches / jobSet.size : 0;
 
-  return Math.max(jobCoverage, profileCoverage, matchRatio);
+  const profileCoverage =
+    profileSet.size > 0 ? matches / profileSet.size : 0;
+
+  // Main score:
+  // - prioritize how much of the JOB you satisfy
+  // - lightly consider profile coverage
+  let score =
+    (jobCoverage * 0.8 + profileCoverage * 0.2) * 100;
+
+  // Reward multiple matches
+  if (matches >= 2) score += 10;
+  if (matches >= 4) score += 10;
+  if (matches >= 6) score += 10;
+
+  // Penalize suspicious single-match cases
+  if (matches === 1 && jobSet.size >= 5) {
+    score *= 0.55;
+  }
+
+  // Penalize weak overlap
+  if (jobCoverage < 0.2) {
+    score *= 0.7;
+  }
+
+  return Math.round(Math.min(100, score));
 }
 
 /**
@@ -311,6 +342,13 @@ function filterJobs(jobs, profile) {
 
     const originalSkillCount = (Array.isArray(job.skills) ? job.skills.length : 0);
     const enrichedJob = enrichJobWithDescriptionSkills(job);
+    if (
+      job.site === 'Freelancer' &&
+      originalSkillCount === 0 &&
+      matches <= 1
+    ) {
+      continue;
+    }
     const enrichedSkillCount = (Array.isArray(enrichedJob.skills) ? enrichedJob.skills.length : 0);
     const wasEnriched = enrichedSkillCount > originalSkillCount;
 
@@ -319,7 +357,13 @@ function filterJobs(jobs, profile) {
 
     if (wasEnriched && originalSkillCount === 0) {
       const sparse = calcSparseEnrichedScore(matches, enrichedSkillCount);
-      score = Math.max(score, sparse);
+      score = Math.min(score, sparse);
+    }
+
+    // When profile has no skills, pass all jobs from enabled sites with a base score
+    if (profileSize === 0) {
+      results.push({ ...job, score: 50 });
+      continue;
     }
 
     if (matches < minMatches) {

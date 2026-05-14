@@ -73,5 +73,8 @@
       setBadgeText: wrapAsync(chrome.action.setBadgeText, chrome.action, { noResult: true }),
       setBadgeBackgroundColor: wrapAsync(chrome.action.setBadgeBackgroundColor, chrome.action, { noResult: true }),
     },
+    windows: {
+      create: wrapAsync(chrome.windows.create, chrome.windows),
+    },
   };
 })();

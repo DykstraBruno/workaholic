@@ -35,6 +35,7 @@ const TRANSLATIONS = {
     cacheCleared: 'Cache limpo. Pronto para nova busca.',
     fetchStopped: 'Busca interrompida.',
     filterAll: 'Todos',
+    filterRemote: 'Remoto',
     emptyState: 'Nenhuma vaga encontrada. Clique em "Buscar agora" para atualizar.',
     languageLabel: 'Idioma',
     lastFetchPrefix: (ago) => `Última busca: ${ago}`,
@@ -97,6 +98,7 @@ const TRANSLATIONS = {
     cacheCleared: 'Cache cleared. Ready for a new search.',
     fetchStopped: 'Search stopped.',
     filterAll: 'All',
+    filterRemote: 'Remote',
     emptyState: 'No jobs found. Click "Fetch now" to refresh.',
     languageLabel: 'Language',
     lastFetchPrefix: (ago) => `Last search: ${ago}`,
@@ -1401,30 +1403,51 @@ function renderDiagnostics(diagnostics) {
   }
 }
 
+function isRemoteJob(job) {
+  const hay = `${job.title || ''} ${job.description || ''}`.toLowerCase();
+  return /\bremot[eo]\b|\bwork\s+from\s+home\b|\bwfh\b|\bteletrabalho\b|\bhome\s+office\b|\bhomeoffice\b/.test(hay);
+}
+
 function renderSiteFilterBar(jobs) {
   const bar = document.getElementById('site-filter-bar');
   if (!jobs.length) { bar.hidden = true; return; }
 
+  const hasRemote = jobs.some(isRemoteJob);
   const sitesInJobs = [...new Set(jobs.map((j) => j.site).filter(Boolean))];
+
+  const remoteChip = hasRemote
+    ? `<button class="site-filter-chip site-filter-chip--remote${filterRemote ? ' site-filter-chip--active' : ''}" data-remote="1"> ${t('filterRemote')}</button>`
+    : '';
+
   bar.hidden = false;
   bar.innerHTML = sitesInJobs.reduce((html, site) => {
     const active = filterSite === site ? ' site-filter-chip--active' : '';
     return html + `<button class="site-filter-chip${active}" data-filter="${esc(site)}">${esc(SITE_LABELS[site] ?? site)}</button>`;
-  }, `<button class="site-filter-chip${filterSite === 'all' ? ' site-filter-chip--active' : ''}" data-filter="all">${t('filterAll')}</button>`);
+  }, `<button class="site-filter-chip${filterSite === 'all' ? ' site-filter-chip--active' : ''}" data-filter="all">${t('filterAll')}</button>`) + remoteChip;
 
-  bar.querySelectorAll('.site-filter-chip').forEach((btn) => {
+  bar.querySelectorAll('.site-filter-chip[data-filter]').forEach((btn) => {
     btn.addEventListener('click', () => {
       filterSite = btn.dataset.filter;
       renderSiteFilterBar(jobs);
       renderJobs(jobs);
     });
   });
+
+  const remoteBtn = bar.querySelector('.site-filter-chip[data-remote]');
+  if (remoteBtn) {
+    remoteBtn.addEventListener('click', () => {
+      filterRemote = !filterRemote;
+      renderSiteFilterBar(jobs);
+      renderJobs(jobs);
+    });
+  }
 }
 
 function renderJobs(jobs) {
   const list  = document.getElementById('job-list');
   const empty = document.getElementById('jobs-empty');
-  const visible = filterSite === 'all' ? jobs : jobs.filter((j) => j.site === filterSite);
+  let visible = filterSite === 'all' ? jobs : jobs.filter((j) => j.site === filterSite);
+  if (filterRemote) visible = visible.filter(isRemoteJob);
 
   if (!visible.length) {
     list.innerHTML  = '';
@@ -1478,6 +1501,7 @@ let profileBlacklist = [];
 let profileKeywords  = [];
 let profileStateLoaded = false;
 let filterSite = 'all';
+let filterRemote = false;
 
 function defaultProfile() {
   return {
@@ -1541,18 +1565,21 @@ function removeSkill(skill) {
   profileSkills = profileSkills.filter((s) => s !== skill);
   profileStateLoaded = true;
   renderTags('skills-tags', profileSkills, removeSkill);
+  autoSaveProfile();
 }
 
 function removeBlacklistWord(word) {
   profileBlacklist = profileBlacklist.filter((w) => w !== word);
   profileStateLoaded = true;
   renderTags('blacklist-tags', profileBlacklist, removeBlacklistWord);
+  autoSaveProfile();
 }
 
 function removeKeyword(word) {
   profileKeywords = profileKeywords.filter((w) => w !== word);
   profileStateLoaded = true;
   renderTags('keywords-tags', profileKeywords, removeKeyword);
+  autoSaveProfile();
 }
 
 function addTag(inputId, tagsArray, renderFn, removeFn) {
@@ -1569,6 +1596,12 @@ function addTag(inputId, tagsArray, renderFn, removeFn) {
 // ---------------------------------------------------------------------------
 // Save profile
 // ---------------------------------------------------------------------------
+
+function autoSaveProfile() {
+  ensureProfileExists()
+    .then((existing) => saveProfileWithFallback(buildProfileFromForm(existing, { forceCurrentState: true })))
+    .catch(() => {});
+}
 
 async function saveProfile() {
   const existingProfile = await ensureProfileExists();
@@ -2605,7 +2638,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
 
-          if (!profile.skills?.length) {
+          if (!profile.skills?.length && !jobs.length) {
             setFetchStatus(t('noSkillsInProfile'), 'warning');
             return;
           }
@@ -2647,6 +2680,7 @@ document.addEventListener('DOMContentLoaded', () => {
       profileSkills = normalizeSkills(profileSkills);
       profileStateLoaded = true;
       renderTags('skills-tags', profileSkills, removeSkill);
+      autoSaveProfile();
     }
     skillInput.value = '';
     skillInput.focus();
@@ -2740,6 +2774,7 @@ document.addEventListener('DOMContentLoaded', () => {
       profileKeywords.push(v);
       profileStateLoaded = true;
       renderTags('keywords-tags', profileKeywords, removeKeyword);
+      autoSaveProfile();
     }
     keywordsInput.value = '';
     keywordsInput.focus();
@@ -2756,6 +2791,7 @@ document.addEventListener('DOMContentLoaded', () => {
       profileBlacklist.push(v);
       profileStateLoaded = true;
       renderTags('blacklist-tags', profileBlacklist, removeBlacklistWord);
+      autoSaveProfile();
     }
     blacklistInput.value = '';
     blacklistInput.focus();

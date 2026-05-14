@@ -1194,6 +1194,12 @@ select.input {
   color: var(--color-primary);
 }
 
+.site-filter-chip--remote.site-filter-chip--active {
+  background: rgba(16,185,129,.12);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
 #save-profile-btn {
   height: 44px;
   margin-top: 6px;
