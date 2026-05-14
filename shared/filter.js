@@ -64,6 +64,7 @@ const SYNONYMS = {
   tableau:    ['tableau'],
   figma:      ['figma'],
   photoshop:  ['photoshop', 'illustrator', 'adobe xd', 'adobe illustrator', 'adobe photoshop'],
+  uxdesign:   ['ux', 'ui', 'ui/ux', 'ux/ui', 'user experience', 'user interface', 'ux design', 'ui design', 'product design', 'web design', 'graphic design', 'designer', 'design'],
   wordpress:  ['wordpress', 'wp', 'elementor'],
   shopify:    ['shopify'],
   salesforce: ['salesforce', 'crm salesforce'],
@@ -88,6 +89,9 @@ const SYNONYMS = {
   firebase:   ['firebase', 'firestore', 'supabase'],
   ddd:        ['ddd', 'domain driven design', 'clean architecture', 'hexagonal', 'arquitetura limpa'],
   solid:      ['solid', 'design patterns', 'tdd', 'bdd'],
+  marketing:  ['marketing', 'marketing digital', 'growth', 'seo', 'sem', 'google ads', 'facebook ads', 'meta ads', 'trafego pago', 'inbound', 'outbound', 'email marketing', 'crm', 'branding', 'social media', 'gestao de trafego'],
+  writing:    ['redator', 'redacao', 'copywriter', 'copywriting', 'content writer', 'escrita', 'escritor', 'jornalista', 'jornalismo', 'blogger', 'blog', 'producao de conteudo', 'content creation', 'technical writer', 'ux writer'],
+  dataanalyst: ['analista de dados', 'data analyst', 'data science', 'data scientist', 'cientista de dados', 'engenheiro de dados', 'data engineer', 'business intelligence', 'analise de dados', 'dados', 'bi analyst'],
 };
 
 const MIN_MATCH_SCORE = 12;
@@ -320,6 +324,12 @@ function filterJobs(jobs, profile) {
     if (wasEnriched && originalSkillCount === 0) {
       const sparse = calcSparseEnrichedScore(matches, enrichedSkillCount);
       score = Math.max(score, sparse);
+    }
+
+    // When profile has no skills, pass all jobs from enabled sites with a base score
+    if (profileSize === 0) {
+      results.push({ ...job, score: 50 });
+      continue;
     }
 
     if (matches < minMatches) {

@@ -8,7 +8,8 @@
     : ['[data-test="project-card"]', '.project-item', '.project'];
 
   function send(jobs) {
-    chrome.runtime.sendMessage({ site: 'freelas99', jobs: Array.isArray(jobs) ? jobs : [] });
+    const api = (typeof browser !== 'undefined' ? browser : chrome);
+    try { api.runtime.sendMessage({ site: 'freelas99', jobs: Array.isArray(jobs) ? jobs : [] }).catch(() => {}); } catch { /* context invalidated */ }
   }
 
   function safeParse(html) {

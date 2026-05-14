@@ -8,7 +8,8 @@
     : ['.JobSearchCard-item', '[data-bid-id]', '.project-item'];
 
   function send(jobs) {
-    chrome.runtime.sendMessage({ site: 'freelancer', jobs: Array.isArray(jobs) ? jobs : [] });
+    const api = (typeof browser !== 'undefined' ? browser : chrome);
+    try { api.runtime.sendMessage({ site: 'freelancer', jobs: Array.isArray(jobs) ? jobs : [] }).catch(() => {}); } catch { /* context invalidated */ }
   }
 
   function safeParse(html) {

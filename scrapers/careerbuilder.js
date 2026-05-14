@@ -7,7 +7,8 @@
   const CARD_SELECTOR = 'tr.job-result';
 
   function send(jobs) {
-    chrome.runtime.sendMessage({ site: 'careerbuilder', jobs: Array.isArray(jobs) ? jobs : [] });
+    const api = (typeof browser !== 'undefined' ? browser : chrome);
+    try { api.runtime.sendMessage({ site: 'careerbuilder', jobs: Array.isArray(jobs) ? jobs : [] }).catch(() => {}); } catch { /* context invalidated */ }
   }
 
   function safeParse(html) {

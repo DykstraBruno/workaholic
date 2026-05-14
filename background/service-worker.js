@@ -27,13 +27,13 @@ const SITE_URLS = {
 	workana: 'https://www.workana.com/jobs',
 	freelas99: 'https://www.99freelas.com.br/projects',
 	linkedin: 'https://www.linkedin.com/jobs/search',
-	indeed: 'https://br.indeed.com/jobs?q=desenvolvedor',
+	indeed: 'https://br.indeed.com/jobs',
 	gupy: 'https://portal.gupy.io/job-search',
 	freelancer: 'https://www.freelancer.com/jobs/',
 	weworkremotely: 'https://weworkremotely.com/remote-jobs/search',
 	peopleperhour: 'https://www.peopleperhour.com/freelance-jobs',
 	guru: 'https://www.guru.com/d/jobs/',
-	careerbuilder: 'https://www.careerbuilder.com/jobs',
+	careerbuilder: 'https://www.careerbuilder.com/en-US/search',
 };
 
 const SUPPORTED_TAB_PATTERNS = [
@@ -156,26 +156,10 @@ function getSiteUrl(site) {
 	return new URL(SITE_URLS[site]);
 }
 
-function getProfileSearchTerms(profile) {
-	const terms = [];
-	if (Array.isArray(profile?.keywords)) {
-		for (const raw of profile.keywords) {
-			const value = String(raw || '').trim();
-			if (value) terms.push(value);
-		}
-	}
-	if (terms.length) return terms;
-
-	const area = String(profile?.area || '').trim().toLowerCase();
-	const fallback = AREA_TO_SEARCH_TERM[area] || area || '';
-	return [fallback];
-}
-
 function getProfileSearchTermForSite(profile, site) {
-	// User-defined keywords always take precedence, regardless of site language.
 	if (Array.isArray(profile?.keywords) && profile.keywords.length) {
-		const first = String(profile.keywords[0] || '').trim();
-		if (first) return first;
+		const joined = profile.keywords.map((k) => String(k || '').trim()).filter(Boolean).join(' ');
+		if (joined) return joined;
 	}
 
 	const area = String(profile?.area || '').trim().toLowerCase();
@@ -186,7 +170,7 @@ function getProfileSearchTermForSite(profile, site) {
 }
 
 function getProfileSearchTerm(profile) {
-	return getProfileSearchTerms(profile)[0] || '';
+	return getProfileSearchTermForSite(profile, '');
 }
 
 function buildSiteSearchUrl(site, term, profile) {
@@ -238,6 +222,9 @@ function buildSiteSearchUrl(site, term, profile) {
 			break;
 		case 'guru':
 			url.searchParams.set('keyword', term);
+			break;
+		case 'careerbuilder':
+			url.searchParams.set('keywords', term);
 			break;
 		default:
 			break;
@@ -661,39 +648,14 @@ async function scrapeSiteForTerm(tabId, site, term, profile) {
 }
 
 async function scrapeSiteInTab(tabId, site, profile) {
-	// Use custom keywords as-is; for area fallback, pick the right language per site.
-	let terms;
-	if (Array.isArray(profile?.keywords) && profile.keywords.length) {
-		terms = profile.keywords.map((k) => String(k || '').trim()).filter(Boolean);
-	} else {
-		terms = [getProfileSearchTermForSite(profile, site)].filter(Boolean);
-	}
-	const merged = [];
-	const seenUrls = new Set();
-	const seenTitles = new Set();
-	let failed = false;
+	const term = getProfileSearchTermForSite(profile, site);
+	const result = await scrapeSiteForTerm(tabId, site, term, profile);
 
-	for (const term of terms) {
-		const result = await scrapeSiteForTerm(tabId, site, term, profile);
-		failed = failed || Boolean(result.failed);
-
-		if (result.loginRequired) {
-			// Login blocks all subsequent searches for this site this cycle.
-			return { site, jobs: [], failed: false, loginRequired: true };
-		}
-
-		for (const job of result.jobs || []) {
-			const urlKey = canonicalizeJobUrl(job?.url || '');
-			const titleKey = canonicalizeJobTitle(job?.title || '');
-			if (urlKey && seenUrls.has(urlKey)) continue;
-			if (titleKey && seenTitles.has(titleKey)) continue;
-			if (urlKey) seenUrls.add(urlKey);
-			if (titleKey) seenTitles.add(titleKey);
-			merged.push(job);
-		}
+	if (result.loginRequired) {
+		return { site, jobs: [], failed: false, loginRequired: true };
 	}
 
-	return { site, jobs: merged, failed, loginRequired: false };
+	return { site, jobs: result.jobs || [], failed: Boolean(result.failed), loginRequired: false };
 }
 
 // ---------------------------------------------------------------------------

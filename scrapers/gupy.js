@@ -5,7 +5,8 @@
   const TIMEOUT_MS = 15_000;
 
   function send(jobs) {
-    chrome.runtime.sendMessage({ site: 'gupy', jobs: Array.isArray(jobs) ? jobs : [] });
+    const api = (typeof browser !== 'undefined' ? browser : chrome);
+    try { api.runtime.sendMessage({ site: 'gupy', jobs: Array.isArray(jobs) ? jobs : [] }).catch(() => {}); } catch { /* context invalidated */ }
   }
 
   function safeParse(html) {

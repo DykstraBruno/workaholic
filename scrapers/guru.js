@@ -8,7 +8,8 @@
     : ['h2 a[href*="/jobs/"]', '.record_block', '.jResultsItem'];
 
   function send(jobs) {
-    chrome.runtime.sendMessage({ site: 'guru', jobs: Array.isArray(jobs) ? jobs : [] });
+    const api = (typeof browser !== 'undefined' ? browser : chrome);
+    try { api.runtime.sendMessage({ site: 'guru', jobs: Array.isArray(jobs) ? jobs : [] }).catch(() => {}); } catch { /* context invalidated */ }
   }
 
   function safeParse(html) {
