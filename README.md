@@ -2,7 +2,13 @@
 
 Workaholic is a cross-browser WebExtension for Firefox, Brave, Opera, Chromium, and Chrome that monitors job and freelance platforms, applies your filters locally, and notifies you only when new jobs match your profile.
 
-https://github.com/user-attachments/assets/6e38c157-889b-4906-89df-641f58043450
+# Demo | Demonstration:
+
+
+
+https://github.com/user-attachments/assets/aa3a68f3-57ca-45f2-acc1-c30e7acbb16f
+
+
 
 ---
 
