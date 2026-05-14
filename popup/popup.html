@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Freelance Job Filter</title>
+  <script src="../libs/browser-polyfill.js"></script>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
@@ -29,10 +30,14 @@
 
       <div class="jobs-toolbar">
         <button id="fetch-now-btn" class="btn btn--primary" data-i18n="fetchNow">Buscar agora</button>
+        <button id="stop-fetch-btn" class="btn btn--stop" hidden data-i18n="stopFetch">⏹ Parar</button>
+        <button id="clear-cache-btn" class="btn btn--ghost" data-i18n="clearCache" title="Limpar cache e vagas salvas">🗑</button>
         <span id="last-fetch" class="last-fetch-text">—</span>
       </div>
 
       <p id="fetch-status" class="fetch-status" hidden></p>
+
+      <div id="site-filter-bar" class="site-filter-bar" hidden></div>
 
       <div id="health-warnings"></div>
       <div id="fetch-diagnostics" class="fetch-diagnostics" hidden></div>
@@ -54,7 +59,6 @@
         </div>
         <div id="skills-tags" class="tags-container" aria-label="Habilidades adicionadas"></div>
         <div class="input-row profile-resume-import-row">
-          <input id="profile-resume-file-input" type="file" accept=".pdf,.docx" hidden />
           <button id="profile-resume-import-btn" class="btn btn--secondary" type="button" data-i18n="importFromResume">Importar do currículo</button>
         </div>
         <p id="profile-resume-import-status" class="field-hint" hidden></p>
@@ -121,6 +125,7 @@
           <label class="checkbox-label" data-site="weworkremotely"><input id="site-weworkremotely" type="checkbox" checked /><span>We Work Remotely</span></label>
           <label class="checkbox-label" data-site="peopleperhour"><input id="site-peopleperhour" type="checkbox" checked /><span>PeoplePerHour</span></label>
           <label class="checkbox-label" data-site="guru"><input id="site-guru"              type="checkbox" checked /><span>Guru</span></label>
+          <label class="checkbox-label" data-site="careerbuilder"><input id="site-careerbuilder" type="checkbox" checked /><span>CareerBuilder</span></label>
         </div>
       </div>
 

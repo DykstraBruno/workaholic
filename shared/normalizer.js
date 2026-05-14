@@ -1,6 +1,6 @@
 'use strict';
 
-const VALID_SITES = ['upwork', 'workana', 'freelas99', 'linkedin', 'indeed', 'gupy', 'freelancer', 'weworkremotely', 'peopleperhour', 'guru'];
+const VALID_SITES = ['upwork', 'workana', 'freelas99', 'linkedin', 'indeed', 'gupy', 'freelancer', 'weworkremotely', 'peopleperhour', 'guru', 'careerbuilder'];
 
 /**
  * Deterministic djb2-based hash over an arbitrary string.

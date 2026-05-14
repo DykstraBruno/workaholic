@@ -1,6 +1,11 @@
 'use strict';
 
-importScripts('../shared/storage.js', '../shared/normalizer.js', '../shared/filter.js');
+// Chrome service worker: load dependencies via importScripts
+// Firefox event page: dependencies already loaded via manifest.json scripts array
+if (typeof importScripts === 'function') {
+	importScripts('/libs/browser-polyfill.js');
+	importScripts('/shared/storage.js', '/shared/normalizer.js', '/shared/filter.js');
+}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -11,6 +16,7 @@ const SCRAPER_TIMEOUT_MS = 30_000;
 const DEFAULT_FETCH_INTERVAL_MINUTES = 1;
 const AUTH_FLOW_KEY = 'authFlow';
 const DIAGNOSTICS_KEY = 'lastFetchDiagnostics';
+const STOP_KEY = 'fetchStopRequested';
 
 // Persistent lock keys — survive service worker restarts
 const LOCK_KEY        = 'fetchCycleLock';   // stores timestamp (ms) when lock was acquired
@@ -27,6 +33,7 @@ const SITE_URLS = {
 	weworkremotely: 'https://weworkremotely.com/remote-jobs/search',
 	peopleperhour: 'https://www.peopleperhour.com/freelance-jobs',
 	guru: 'https://www.guru.com/d/jobs/',
+	careerbuilder: 'https://www.careerbuilder.com/jobs',
 };
 
 const SUPPORTED_TAB_PATTERNS = [
@@ -41,6 +48,7 @@ const SUPPORTED_TAB_PATTERNS = [
 	'https://weworkremotely.com/*',
 	'https://www.peopleperhour.com/*',
 	'https://www.guru.com/*',
+	'https://www.careerbuilder.com/*',
 ];
 
 const SITE_LABELS = {
@@ -54,6 +62,7 @@ const SITE_LABELS = {
 	weworkremotely: 'We Work Remotely',
 	peopleperhour: 'PeoplePerHour',
 	guru: 'Guru',
+	careerbuilder: 'CareerBuilder',
 };
 
 const PARSER_FILES = {
@@ -67,6 +76,7 @@ const PARSER_FILES = {
 	weworkremotely: 'parsers/weworkremotely.parser.js',
 	peopleperhour: 'parsers/peopleperhour.parser.js',
 	guru: 'parsers/guru.parser.js',
+	careerbuilder: 'parsers/careerbuilder.parser.js',
 };
 
 const PARSER_GLOBALS = {
@@ -80,6 +90,7 @@ const PARSER_GLOBALS = {
 	weworkremotely: 'parseWeWorkRemotely',
 	peopleperhour: 'parsePeoplePerHour',
 	guru: 'parseGuru',
+	careerbuilder: 'parseCareerBuilder',
 };
 
 const LOGIN_URL_PATTERNS = {
@@ -93,6 +104,7 @@ const LOGIN_URL_PATTERNS = {
 	weworkremotely: [],
 	peopleperhour: [/\/login/i, /\/signin/i],
 	guru: [/\/login/i, /\/signin/i],
+	careerbuilder: [/\/login/i, /\/account/i],
 };
 
 const AREA_TO_SEARCH_TERM = {
@@ -115,7 +127,7 @@ const AREA_TO_SEARCH_TERM_EN = {
 };
 
 // Sites that expect English search terms
-const ENGLISH_SEARCH_SITES = new Set(['freelancer', 'weworkremotely', 'peopleperhour', 'guru']);
+const ENGLISH_SEARCH_SITES = new Set(['freelancer', 'weworkremotely', 'peopleperhour', 'guru', 'careerbuilder']);
 
 // Maps profile area to 99Freelas ?categoria= slug
 const FREELAS99_AREA_TO_CATEGORY = {
@@ -262,45 +274,26 @@ function isKnownLoginUrl(site, rawUrl) {
 // ---------------------------------------------------------------------------
 
 function localSet(data) {
-	return new Promise((resolve, reject) => {
-		chrome.storage.local.set(data, () => {
-			if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-			else resolve();
-		});
-	});
+	return browser.storage.local.set(data);
 }
 
 function localGet(keys) {
-	return new Promise((resolve, reject) => {
-		chrome.storage.local.get(keys, (result) => {
-			if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-			else resolve(result);
-		});
-	});
+	return browser.storage.local.get(keys);
 }
 
 function getTab(tabId) {
-	return new Promise((resolve, reject) => {
-		chrome.tabs.get(tabId, (tab) => {
-			if (chrome.runtime.lastError) {
-				reject(new Error(chrome.runtime.lastError.message));
-				return;
-			}
-			resolve(tab);
-		});
-	});
+	return browser.tabs.get(tabId);
 }
 
 // ---------------------------------------------------------------------------
 // Alarm management
 // ---------------------------------------------------------------------------
 
-function setupAlarm(intervalMinutes) {
-	chrome.alarms.clear(ALARM_NAME, () => {
-		chrome.alarms.create(ALARM_NAME, {
-			delayInMinutes: intervalMinutes,
-			periodInMinutes: intervalMinutes,
-		});
+async function setupAlarm(intervalMinutes) {
+	await browser.alarms.clear(ALARM_NAME);
+	await browser.alarms.create(ALARM_NAME, {
+		delayInMinutes: intervalMinutes,
+		periodInMinutes: intervalMinutes,
 	});
 }
 
@@ -309,27 +302,11 @@ function setupAlarm(intervalMinutes) {
 // ---------------------------------------------------------------------------
 
 function createWorkerTab() {
-	return new Promise((resolve, reject) => {
-		chrome.tabs.create({ url: 'about:blank', active: false, pinned: true }, (tab) => {
-			if (chrome.runtime.lastError) {
-				reject(new Error(chrome.runtime.lastError.message));
-				return;
-			}
-			resolve(tab);
-		});
-	});
+	return browser.tabs.create({ url: 'about:blank', active: false, pinned: true });
 }
 
 function createInteractiveTab(url) {
-	return new Promise((resolve, reject) => {
-		chrome.tabs.create({ url, active: true }, (tab) => {
-			if (chrome.runtime.lastError) {
-				reject(new Error(chrome.runtime.lastError.message));
-				return;
-			}
-			resolve(tab);
-		});
-	});
+	return browser.tabs.create({ url, active: true });
 }
 
 function navigateTabAndWaitForLoad(tabId, url) {
@@ -343,7 +320,7 @@ function navigateTabAndWaitForLoad(tabId, url) {
 
 		function cleanup() {
 			clearTimeout(timeout);
-			chrome.tabs.onUpdated.removeListener(listener);
+			browser.tabs.onUpdated.removeListener(listener);
 		}
 
 		function finish(error) {
@@ -377,47 +354,30 @@ function navigateTabAndWaitForLoad(tabId, url) {
 		}
 
 		// Register before the update to avoid missing very fast loads.
-		chrome.tabs.onUpdated.addListener(listener);
+		browser.tabs.onUpdated.addListener(listener);
 
-		chrome.tabs.update(tabId, { url }, (tab) => {
-			if (chrome.runtime.lastError) {
-				finish(new Error(chrome.runtime.lastError.message));
-				return;
-			}
+		browser.tabs.update(tabId, { url })
+			.then((tab) => {
+				navigationStarted = true;
 
-			navigationStarted = true;
-
-			if (isReady(tab, { status: tab?.status })) {
-				finish();
-			}
-		});
+				if (isReady(tab, { status: tab?.status })) {
+					finish();
+				}
+			})
+			.catch((error) => finish(error instanceof Error ? error : new Error(String(error))));
 	});
 }
 
-function closeTabQuietly(tabId) {
-	return new Promise((resolve) => {
-		chrome.tabs.remove(tabId, () => {
-			// Consume runtime.lastError to avoid noisy "No tab with id" warnings
-			// when the tab was already closed by the browser/user.
-			if (chrome.runtime.lastError) {
-				resolve();
-				return;
-			}
-			resolve();
-		});
-	});
+async function closeTabQuietly(tabId) {
+	try {
+		await browser.tabs.remove(tabId);
+	} catch {
+		// Tab may already be closed by the browser/user.
+	}
 }
 
 function queryTabs(queryInfo) {
-	return new Promise((resolve, reject) => {
-		chrome.tabs.query(queryInfo, (tabs) => {
-			if (chrome.runtime.lastError) {
-				reject(new Error(chrome.runtime.lastError.message));
-				return;
-			}
-			resolve(tabs);
-		});
-	});
+	return browser.tabs.query(queryInfo);
 }
 
 async function reloadSupportedTabs() {
@@ -432,7 +392,7 @@ async function reloadSupportedTabs() {
 	for (const tab of tabs) {
 		if (!tab?.id) continue;
 		try {
-			chrome.tabs.reload(tab.id);
+			await browser.tabs.reload(tab.id);
 		} catch {
 			// Ignore tabs that disappeared during reload.
 		}
@@ -467,7 +427,7 @@ async function getLiveAuthFlow() {
 
 async function pageLooksLikeLogin(tabId) {
 	try {
-		const [{ result }] = await chrome.scripting.executeScript({
+		const [{ result }] = await browser.scripting.executeScript({
 			target: { tabId },
 			func: () => {
 				const text = (document.body?.innerText || '').slice(0, 3000).toLowerCase();
@@ -534,7 +494,7 @@ async function ensureScraperBridge(tabId, site) {
 	const parserGlobal = PARSER_GLOBALS[site];
 	const parserFile = PARSER_FILES[site];
 
-	const [{ result }] = await chrome.scripting.executeScript({
+	const [{ result }] = await browser.scripting.executeScript({
 		target: { tabId },
 		func: (globalName) => ({
 			bridgeReady: Boolean(globalThis.__WORKAHOLIC_BRIDGE_READY_V2),
@@ -544,26 +504,27 @@ async function ensureScraperBridge(tabId, site) {
 	});
 
 	if (!result?.parserReady) {
-		await chrome.scripting.executeScript({
+		await browser.scripting.executeScript({
 			target: { tabId },
-			files: [parserFile],
+			files: ['libs/browser-polyfill.js', parserFile],
 		});
 		// Always re-inject the bridge when the parser was missing. The bridge
 		// may be an old version (from a previous extension load) that doesn't
 		// include this site in getSiteConfig. Re-injecting replaces its listener
 		// safely via __WORKAHOLIC_BRIDGE_LISTENER cleanup.
-		await chrome.scripting.executeScript({
+		await browser.scripting.executeScript({
 			target: { tabId },
-			files: ['content/scraper-bridge-v2.js'],
+			files: ['libs/browser-polyfill.js', 'content/scraper-bridge-v2.js'],
 		});
 		return;
 	}
 
 	if (result?.bridgeReady) return;
 
-	await chrome.scripting.executeScript({
+	await browser.scripting.executeScript({
 		target: { tabId },
 		files: [
+			'libs/browser-polyfill.js',
 			'content/scraper-bridge-v2.js',
 		],
 	});
@@ -576,7 +537,7 @@ function injectScraperAndCollect(tabId, site) {
 		const timeout = setTimeout(() => {
 			if (settled) return;
 			settled = true;
-			chrome.runtime.onMessage.removeListener(messageListener);
+			browser.runtime.onMessage.removeListener(messageListener);
 			reject(new Error(`Scraper timeout in tab ${tabId}`));
 		}, SCRAPER_TIMEOUT_MS);
 
@@ -588,14 +549,14 @@ function injectScraperAndCollect(tabId, site) {
 
 			settled = true;
 			clearTimeout(timeout);
-			chrome.runtime.onMessage.removeListener(messageListener);
+			browser.runtime.onMessage.removeListener(messageListener);
 			resolve(message.jobs);
 		}
 
-		chrome.runtime.onMessage.addListener(messageListener);
+		browser.runtime.onMessage.addListener(messageListener);
 
 		ensureScraperBridge(tabId, site)
-			.then(() => chrome.tabs.sendMessage(
+			.then(() => browser.tabs.sendMessage(
 				tabId,
 				{
 					type: 'SCRAPE_SITE',
@@ -606,7 +567,7 @@ function injectScraperAndCollect(tabId, site) {
 				if (settled) return;
 				settled = true;
 				clearTimeout(timeout);
-				chrome.runtime.onMessage.removeListener(messageListener);
+				browser.runtime.onMessage.removeListener(messageListener);
 				reject(new Error(`Failed to inject scraper bridge: ${err.message}`));
 			});
 	});
@@ -619,7 +580,7 @@ async function collectJobsDirectlyFromDom(tabId, site) {
 	try {
 		await ensureScraperBridge(tabId, site);
 
-		const [{ result }] = await chrome.scripting.executeScript({
+		const [{ result }] = await browser.scripting.executeScript({
 			target: { tabId },
 			func: (globalName) => {
 				try {
@@ -653,6 +614,30 @@ async function collectJobsDirectlyFromDom(tabId, site) {
 
 async function scrapeSiteForTerm(tabId, site, term, profile) {
 	try {
+		// Inject proper headers for Cloudflare-protected sites (CareerBuilder)
+		if (site === 'careerbuilder') {
+			await browser.scripting.executeScript({
+				target: { tabId },
+				func: () => {
+					// Override fetch to add proper headers for Cloudflare bypass
+					const originalFetch = window.fetch;
+					window.fetch = function(url, options = {}) {
+						const headers = {
+							'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+							'Accept-Language': 'en-US,en;q=0.9',
+							'Accept-Encoding': 'gzip, deflate, br',
+							'Sec-Fetch-Dest': 'document',
+							'Sec-Fetch-Mode': 'navigate',
+							'Sec-Fetch-Site': 'none',
+							'Sec-Fetch-User': '?1',
+							...options.headers
+						};
+						return originalFetch(url, { ...options, headers });
+					};
+				}
+			});
+		}
+
 		await navigateTabAndWaitForLoad(tabId, buildSiteSearchUrl(site, term, profile));
 		if (await siteRequiresLogin(tabId, site)) {
 			return { jobs: [], loginRequired: true, failed: false };
@@ -716,10 +701,10 @@ async function scrapeSiteInTab(tabId, site, profile) {
 // ---------------------------------------------------------------------------
 
 async function createNotificationSafe(notificationId, options) {
-	const iconUrl = chrome.runtime.getURL('icons/icon128.png');
+	const iconUrl = browser.runtime.getURL('icons/icon128.png');
 
 	try {
-		await chrome.notifications.create(notificationId, {
+		await browser.notifications.create(notificationId, {
 			iconUrl,
 			...options,
 		});
@@ -747,8 +732,8 @@ function notifyHealth(site, failures) {
 
 function setBadge(newJobsCount) {
 	const text = newJobsCount > 0 ? String(newJobsCount) : '';
-	chrome.action.setBadgeText({ text });
-	chrome.action.setBadgeBackgroundColor({ color: '#4F46E5' });
+	browser.action.setBadgeText({ text });
+	browser.action.setBadgeBackgroundColor({ color: '#4F46E5' });
 }
 
 // ---------------------------------------------------------------------------
@@ -933,6 +918,11 @@ async function runFetchCycle() {
 		await localSet({ workerTabId: workerTab.id });
 
 		for (const site of enabledSites) {
+			const stopCheck = await localGet(STOP_KEY);
+			if (stopCheck[STOP_KEY]) {
+				await localSet({ [STOP_KEY]: false });
+				break;
+			}
 			const result = await scrapeSiteInTab(workerTab.id, site, profile);
 			perSiteResults.push(result);
 		}
@@ -1031,23 +1021,24 @@ async function runFetchCycle() {
 // Event listeners
 // ---------------------------------------------------------------------------
 
-chrome.runtime.onInstalled.addListener(async () => {
+browser.runtime.onInstalled.addListener(async () => {
 	let profile = await getProfile();
 	if (!profile) {
 		profile = createDefaultProfile();
 		await saveProfile(profile);
 	}
-	const interval = profile?.fetchInterval || DEFAULT_FETCH_INTERVAL_MINUTES;
-	setupAlarm(interval);
+
+	await browser.alarms.clear(ALARM_NAME);
+	await localSet({ [STOP_KEY]: false, [LOCK_KEY]: null, workerTabId: null });
 	await reloadSupportedTabs();
 });
 
-chrome.alarms.onAlarm.addListener((alarm) => {
+browser.alarms.onAlarm.addListener((alarm) => {
 	if (alarm.name !== ALARM_NAME) return;
 	runFetchCycle().catch(() => {});
 });
 
-chrome.storage.onChanged.addListener((changes, areaName) => {
+browser.storage.onChanged.addListener((changes, areaName) => {
 	if (areaName !== 'sync') return;
 	if (!changes.profile) return;
 
@@ -1055,11 +1046,11 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 	const newInterval = changes.profile.newValue?.fetchInterval || DEFAULT_FETCH_INTERVAL_MINUTES;
 
 	if (oldInterval !== newInterval) {
-		setupAlarm(newInterval);
+		setupAlarm(newInterval).catch(() => {});
 	}
 });
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 	if (changeInfo.status !== 'complete' && !changeInfo.url) return;
 
 	getLiveAuthFlow()
@@ -1078,7 +1069,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 		.catch(() => {});
 });
 
-chrome.tabs.onRemoved.addListener((tabId) => {
+browser.tabs.onRemoved.addListener((tabId) => {
 	getAuthFlow()
 		.then((flow) => {
 			if (!flow || flow.tabId !== tabId) return;
@@ -1087,12 +1078,46 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 		.catch(() => {});
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 	if (!message || !message.type) return;
 
 	if (message.type === 'FETCH_NOW') {
-		runFetchCycle()
+		localSet({ [STOP_KEY]: false })
+			.then(async () => {
+				// Restart the alarm when fetch is manually triggered
+				const profile = await getProfile();
+				const interval = profile?.fetchInterval || DEFAULT_FETCH_INTERVAL_MINUTES;
+				await setupAlarm(interval);
+				return runFetchCycle();
+			})
 			.then((result) => sendResponse({ ok: true, result }))
+			.catch((error) => sendResponse({ ok: false, error: error.message }));
+		return true;
+	}
+
+	if (message.type === 'STOP_FETCH') {
+		localGet('workerTabId')
+			.then(async (r) => {
+				// Set stop flag to halt current cycle
+				await localSet({ [STOP_KEY]: true });
+				
+				// Clear the alarm to stop future cycles
+				await browser.alarms.clear(ALARM_NAME);
+				
+				// Close worker tab and release lock
+				if (r.workerTabId != null) {
+					await closeTabQuietly(r.workerTabId);
+					await localSet({ workerTabId: null, [LOCK_KEY]: null });
+				}
+				sendResponse({ ok: true });
+			})
+			.catch((error) => sendResponse({ ok: false, error: error.message }));
+		return true;
+	}
+
+	if (message.type === 'CLEAR_CACHE') {
+		browser.storage.local.remove(['jobs', 'lastFetch', 'lastFetchDiagnostics', 'seen_jobs', LOCK_KEY, STOP_KEY, 'workerTabId'])
+			.then(() => sendResponse({ ok: true }))
 			.catch((error) => sendResponse({ ok: false, error: error.message }));
 		return true;
 	}
