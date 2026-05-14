@@ -3,9 +3,11 @@
   "name": "Workaholic",
   "version": "1.0.0",
   "description": "Filters freelance jobs from multiple platforms based on your skill profile",
+  "minimum_chrome_version": "121",
 
   "permissions": [
     "storage",
+    "unlimitedStorage",
     "alarms",
     "notifications",
     "scripting",
@@ -24,27 +26,45 @@
     "https://www.freelancer.com/*",
     "https://weworkremotely.com/*",
     "https://www.peopleperhour.com/*",
-    "https://www.guru.com/*"
+    "https://www.guru.com/*",
+    "https://www.careerbuilder.com/*"
   ],
 
   "background": {
-    "service_worker": "background/service-worker.js"
+    "service_worker": "background/service-worker.js",
+    "scripts": [
+      "libs/browser-polyfill.js",
+      "shared/storage.js",
+      "shared/normalizer.js",
+      "shared/filter.js",
+      "background/service-worker.js"
+    ]
+  },
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "workaholic@dykstrabruno",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
   },
 
   "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {
-      "16": "icons/icon128.png",
-      "32": "icons/icon128.png",
-      "48": "icons/icon128.png",
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
   },
 
   "icons": {
-    "16": "icons/icon128.png",
-    "32": "icons/icon128.png",
-    "48": "icons/icon128.png",
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
 
@@ -63,7 +83,8 @@
         "https://www.freelancer.com/*",
         "https://weworkremotely.com/*",
         "https://www.peopleperhour.com/*",
-        "https://www.guru.com/*"
+        "https://www.guru.com/*",
+        "https://www.careerbuilder.com/*"
       ]
     },
     {

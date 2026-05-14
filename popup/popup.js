@@ -15,7 +15,7 @@ const KEYS = {
   APPLIED_JOBS:     'appliedJobs',
 };
 
-const SITES = ['upwork', 'workana', 'freelas99', 'linkedin', 'indeed', 'gupy', 'freelancer', 'weworkremotely', 'peopleperhour', 'guru'];
+const SITES = ['upwork', 'workana', 'freelas99', 'linkedin', 'indeed', 'gupy', 'freelancer', 'weworkremotely', 'peopleperhour', 'guru', 'careerbuilder'];
 
 // ---------------------------------------------------------------------------
 // Internationalization
@@ -31,6 +31,10 @@ const TRANSLATIONS = {
   pt: {
     tabJobs: 'Vagas', tabProfile: 'Perfil', tabResume: 'Currículo',
     fetchNow: 'Buscar agora', fetching: 'Buscando…',
+    stopFetch: '⏹ Parar', clearCache: 'Limpar',
+    cacheCleared: 'Cache limpo. Pronto para nova busca.',
+    fetchStopped: 'Busca interrompida.',
+    filterAll: 'Todos',
     emptyState: 'Nenhuma vaga encontrada. Clique em "Buscar agora" para atualizar.',
     languageLabel: 'Idioma',
     lastFetchPrefix: (ago) => `Última busca: ${ago}`,
@@ -89,6 +93,10 @@ const TRANSLATIONS = {
   en: {
     tabJobs: 'Jobs', tabProfile: 'Profile', tabResume: 'Resume',
     fetchNow: 'Fetch now', fetching: 'Fetching…',
+    stopFetch: '⏹ Stop', clearCache: 'Clear',
+    cacheCleared: 'Cache cleared. Ready for a new search.',
+    fetchStopped: 'Search stopped.',
+    filterAll: 'All',
     emptyState: 'No jobs found. Click "Fetch now" to refresh.',
     languageLabel: 'Language',
     lastFetchPrefix: (ago) => `Last search: ${ago}`,
@@ -197,62 +205,86 @@ const SITE_LABELS = {
   weworkremotely: 'We Work Remotely',
   peopleperhour:  'PeoplePerHour',
   guru:           'Guru',
+  careerbuilder:  'CareerBuilder',
 };
 
 // ---------------------------------------------------------------------------
-// chrome.storage helpers
+// browser.storage helpers
 // ---------------------------------------------------------------------------
 
 function localGet(keys) {
-  return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
+  return browser.storage.local.get(keys);
 }
 
 function localSet(data) {
+  return browser.storage.local.set(data);
+}
+
+const RESUME_IMPORT_PENDING_KEY = 'profileResumeImportPending';
+const RESUME_FILE_DB_NAME = 'workaholicResumeFiles';
+const RESUME_FILE_STORE = 'files';
+
+function openResumeFileDb() {
   return new Promise((resolve, reject) => {
-    chrome.storage.local.set(data, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
+    const request = indexedDB.open(RESUME_FILE_DB_NAME, 1);
+    request.onerror = () => reject(request.error || new Error('Failed to open resume file database.'));
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(RESUME_FILE_STORE)) {
+        db.createObjectStore(RESUME_FILE_STORE);
       }
+    };
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+async function getResumeFileRecord(fileId) {
+  if (!fileId) return null;
+
+  const db = await openResumeFileDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(RESUME_FILE_STORE, 'readonly');
+    const request = tx.objectStore(RESUME_FILE_STORE).get(fileId);
+
+    request.onerror = () => reject(request.error || new Error('Failed to read stored resume file.'));
+    request.onsuccess = () => resolve(request.result ?? null);
+
+    tx.oncomplete = () => db.close();
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error || new Error('Failed to read stored resume file.'));
+    };
+  });
+}
+
+async function deleteResumeFileRecord(fileId) {
+  if (!fileId) return;
+
+  const db = await openResumeFileDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(RESUME_FILE_STORE, 'readwrite');
+    tx.objectStore(RESUME_FILE_STORE).delete(fileId);
+    tx.oncomplete = () => {
+      db.close();
       resolve();
-    });
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error || new Error('Failed to clear stored resume file.'));
+    };
   });
 }
 
 function syncGet(keys) {
-  return new Promise((resolve, reject) => {
-    chrome.storage.sync.get(keys, (result) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve(result);
-    });
-  });
+  return browser.storage.sync.get(keys);
 }
 
 function syncSet(data) {
-  return new Promise((resolve, reject) => {
-    chrome.storage.sync.set(data, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve();
-    });
-  });
+  return browser.storage.sync.set(data);
 }
 
 function sendRuntimeMessage(payload) {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(payload, (response) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve(response);
-    });
-  });
+  return browser.runtime.sendMessage(payload);
 }
 
 async function saveProfileWithFallback(profile) {
@@ -905,21 +937,15 @@ function readableTextFromHtml(html) {
 }
 
 function createHiddenTab(url) {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.create({ url, active: false }, (tab) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve(tab);
-    });
-  });
+  return browser.tabs.create({ url, active: false });
 }
 
-function removeTab(tabId) {
-  return new Promise((resolve) => {
-    chrome.tabs.remove(tabId, () => resolve());
-  });
+async function removeTab(tabId) {
+  try {
+    await browser.tabs.remove(tabId);
+  } catch {
+    // Tab may already be closed.
+  }
 }
 
 function waitTabComplete(tabId, timeoutMs = DETAIL_TAB_TIMEOUT_MS) {
@@ -929,7 +955,7 @@ function waitTabComplete(tabId, timeoutMs = DETAIL_TAB_TIMEOUT_MS) {
     const timeoutId = setTimeout(() => {
       if (settled) return;
       settled = true;
-      chrome.tabs.onUpdated.removeListener(onUpdated);
+      browser.tabs.onUpdated.removeListener(onUpdated);
       reject(new Error('Timeout ao carregar pagina da vaga'));
     }, timeoutMs);
 
@@ -940,110 +966,92 @@ function waitTabComplete(tabId, timeoutMs = DETAIL_TAB_TIMEOUT_MS) {
       if (settled) return;
       settled = true;
       clearTimeout(timeoutId);
-      chrome.tabs.onUpdated.removeListener(onUpdated);
+      browser.tabs.onUpdated.removeListener(onUpdated);
       resolve();
     }
 
-    chrome.tabs.onUpdated.addListener(onUpdated);
+    browser.tabs.onUpdated.addListener(onUpdated);
 
-    chrome.tabs.get(tabId, (tab) => {
-      if (settled) return;
-
-      if (chrome.runtime.lastError) {
+    browser.tabs.get(tabId)
+      .then((tab) => {
+        if (settled) return;
+        if (tab?.status === 'complete') {
+          settled = true;
+          clearTimeout(timeoutId);
+          browser.tabs.onUpdated.removeListener(onUpdated);
+          resolve();
+        }
+      })
+      .catch((error) => {
+        if (settled) return;
         settled = true;
         clearTimeout(timeoutId);
-        chrome.tabs.onUpdated.removeListener(onUpdated);
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-
-      if (tab?.status === 'complete') {
-        settled = true;
-        clearTimeout(timeoutId);
-        chrome.tabs.onUpdated.removeListener(onUpdated);
-        resolve();
-      }
-    });
+        browser.tabs.onUpdated.removeListener(onUpdated);
+        reject(error);
+      });
   });
 }
 
-function extractRequirementsFromDom(tabId) {
-  return new Promise((resolve, reject) => {
-    chrome.scripting.executeScript(
-      {
-        target: { tabId },
-        files: ['shared/job-extractor.js'],
-      },
-      () => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
+async function extractRequirementsFromDom(tabId) {
+  await browser.scripting.executeScript({
+    target: { tabId },
+    files: ['shared/job-extractor.js'],
+  });
+
+  const results = await browser.scripting.executeScript({
+    target: { tabId },
+    func: async () => {
+      if (!window.__JobExtractor?.extractJobText) return '';
+
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      function fallbackRawExtraction() {
+        const rootCandidates = [
+          '[data-testid="job-description"]',
+          '[data-testid="job-details"]',
+          'main section',
+          'article',
+          'main',
+        ];
+
+        for (const selector of rootCandidates) {
+          const el = document.querySelector(selector);
+          if (!el) continue;
+          const txt = window.__JobExtractor.normalizeText(
+            window.__JobExtractor.extractTextFromNode(el)
+          );
+          if (txt && txt.length > 120) return txt;
         }
 
-        chrome.scripting.executeScript(
-          {
-            target: { tabId },
-            func: async () => {
-              if (!window.__JobExtractor?.extractJobText) return '';
-
-              const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-              function fallbackRawExtraction() {
-                const rootCandidates = [
-                  '[data-testid="job-description"]',
-                  '[data-testid="job-details"]',
-                  'main section',
-                  'article',
-                  'main',
-                ];
-
-                for (const selector of rootCandidates) {
-                  const el = document.querySelector(selector);
-                  if (!el) continue;
-                  const txt = window.__JobExtractor.normalizeText(
-                    window.__JobExtractor.extractTextFromNode(el)
-                  );
-                  if (txt && txt.length > 120) return txt;
-                }
-
-                const bodyText = window.__JobExtractor.normalizeText(
-                  window.__JobExtractor.extractTextFromNode(document.body)
-                );
-                return bodyText.length > 120 ? bodyText : '';
-              }
-
-              try {
-                let best = '';
-
-                // Gupy and LinkedIn pages often render description asynchronously.
-                for (let i = 0; i < 8; i++) {
-                  const extraction = await window.__JobExtractor.extractJobText(window.location.href);
-                  const text = extraction?.text || '';
-                  if (text.length > best.length) best = text;
-                  if (text.length > 400) return text;
-                  await sleep(700);
-                }
-
-                const raw = fallbackRawExtraction();
-                if (raw.length > best.length) best = raw;
-
-                return best;
-              } catch {
-                return '';
-              }
-            },
-          },
-          (results) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-              return;
-            }
-            resolve(results?.[0]?.result || '');
-          }
+        const bodyText = window.__JobExtractor.normalizeText(
+          window.__JobExtractor.extractTextFromNode(document.body)
         );
+        return bodyText.length > 120 ? bodyText : '';
       }
-    );
+
+      try {
+        let best = '';
+
+        // Gupy and LinkedIn pages often render description asynchronously.
+        for (let i = 0; i < 8; i++) {
+          const extraction = await window.__JobExtractor.extractJobText(window.location.href);
+          const text = extraction?.text || '';
+          if (text.length > best.length) best = text;
+          if (text.length > 400) return text;
+          await sleep(700);
+        }
+
+        const raw = fallbackRawExtraction();
+        if (raw.length > best.length) best = raw;
+
+        return best;
+      } catch {
+        return '';
+      }
+    },
   });
+
+  return results?.[0]?.result || '';
 }
 
 async function fetchRequirementTextFromJobUrl(jobUrl) {
@@ -1316,6 +1324,7 @@ async function loadJobsTab() {
 
   await renderHealthWarnings();
   renderDiagnostics(diagnostics);
+  renderSiteFilterBar(jobs);
   renderJobs(jobs);
 }
 
@@ -1392,11 +1401,32 @@ function renderDiagnostics(diagnostics) {
   }
 }
 
+function renderSiteFilterBar(jobs) {
+  const bar = document.getElementById('site-filter-bar');
+  if (!jobs.length) { bar.hidden = true; return; }
+
+  const sitesInJobs = [...new Set(jobs.map((j) => j.site).filter(Boolean))];
+  bar.hidden = false;
+  bar.innerHTML = sitesInJobs.reduce((html, site) => {
+    const active = filterSite === site ? ' site-filter-chip--active' : '';
+    return html + `<button class="site-filter-chip${active}" data-filter="${esc(site)}">${esc(SITE_LABELS[site] ?? site)}</button>`;
+  }, `<button class="site-filter-chip${filterSite === 'all' ? ' site-filter-chip--active' : ''}" data-filter="all">${t('filterAll')}</button>`);
+
+  bar.querySelectorAll('.site-filter-chip').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      filterSite = btn.dataset.filter;
+      renderSiteFilterBar(jobs);
+      renderJobs(jobs);
+    });
+  });
+}
+
 function renderJobs(jobs) {
   const list  = document.getElementById('job-list');
   const empty = document.getElementById('jobs-empty');
+  const visible = filterSite === 'all' ? jobs : jobs.filter((j) => j.site === filterSite);
 
-  if (!jobs.length) {
+  if (!visible.length) {
     list.innerHTML  = '';
     list.hidden     = true;
     if (empty) {
@@ -1408,7 +1438,7 @@ function renderJobs(jobs) {
 
   if (empty) empty.hidden = true;
   list.hidden  = false;
-  list.innerHTML = jobs.map((job) => {
+  list.innerHTML = visible.map((job) => {
     const score  = Math.round(job.score ?? 0);
     const budget = formatBudget(job.budget);
     const date   = formatDate(job.postedAt);
@@ -1447,6 +1477,7 @@ let profileSkills    = [];
 let profileBlacklist = [];
 let profileKeywords  = [];
 let profileStateLoaded = false;
+let filterSite = 'all';
 
 function defaultProfile() {
   return {
@@ -1578,7 +1609,10 @@ function buildProfileFromForm(baseProfile = defaultProfile(), options = {}) {
     blacklist:    [...profileBlacklist],
     keywords:     [...profileKeywords],
     sites:        Object.fromEntries(
-      SITES.map((s) => [s, document.getElementById(`site-${s}`).checked])
+      SITES.map((s) => {
+        const cb = document.getElementById(`site-${s}`);
+        return [s, cb ? cb.checked : true];
+      })
     ),
     fetchInterval: parseInt(document.getElementById('profile-interval').value, 10),
   };
@@ -2251,7 +2285,6 @@ async function handleResumeFile(file) {
 
 async function importProfileSkillsFromResume(file) {
   const statusEl = document.getElementById('profile-resume-import-status');
-  const inputEl = document.getElementById('profile-resume-file-input');
 
   statusEl.hidden = false;
   statusEl.textContent = t('processingFile', file.name);
@@ -2283,7 +2316,6 @@ async function importProfileSkillsFromResume(file) {
     const added = profileSkills.length - previous.length;
     if (added <= 0) {
       statusEl.textContent = t('noSkillsInResume');
-      inputEl.value = '';
       return;
     }
 
@@ -2293,10 +2325,114 @@ async function importProfileSkillsFromResume(file) {
     statusEl.textContent = t('skillsImported', added);
   } catch (error) {
     statusEl.textContent = t('importError', error.message);
-  } finally {
-    inputEl.value = '';
   }
 }
+
+async function importProfileSkillsFromResumeText(text, filename) {
+  const statusEl = document.getElementById('profile-resume-import-status');
+  statusEl.hidden = false;
+  statusEl.textContent = t('processingFile', filename);
+
+  try {
+    const importedSkills = extractSkillsFromResumeText(text);
+    const previous = [...profileSkills];
+
+    profileSkills = normalizeSkills([...profileSkills, ...importedSkills]);
+    profileStateLoaded = true;
+    renderTags('skills-tags', profileSkills, removeSkill);
+
+    const added = profileSkills.length - previous.length;
+    if (added <= 0) {
+      statusEl.textContent = t('noSkillsInResume');
+      return;
+    }
+
+    const existingProfile = await ensureProfileExists();
+    await saveProfileWithFallback(
+      buildProfileFromForm(existingProfile, { forceCurrentState: true })
+    );
+
+    statusEl.textContent = t('skillsImported', added);
+  } catch (error) {
+    statusEl.textContent = t('importError', error.message);
+  }
+}
+
+async function processImportedResume(pending) {
+  if (!pending?.text) return;
+  const target = pending.target === 'resume' ? 'resume' : 'profile';
+
+  if (target === 'profile') {
+    switchTab('profile');
+    await loadProfileTab();
+    await importProfileSkillsFromResumeText(pending.text, pending.filename);
+    return;
+  }
+
+  switchTab('resume');
+
+  const hint = document.getElementById('resume-upload-hint');
+  const name = document.getElementById('resume-upload-name');
+  hint.hidden = true;
+  name.hidden = false;
+  name.textContent = `✓ ${pending.filename}`;
+
+  resumeText = pending.text;
+  resumeOptimizedText = '';
+  resumeReady = true;
+  resumeIsPDF = pending.filename.toLowerCase().endsWith('.pdf');
+  resumeOriginalFile = null;
+  resumeOriginalBytes = null;
+  resumeMissingKeywords = [];
+
+  if (pending.fileId) {
+    try {
+      const record = await getResumeFileRecord(pending.fileId);
+      if (record?.arrayBuffer) {
+        resumeOriginalBytes = record.arrayBuffer;
+      }
+    } finally {
+      deleteResumeFileRecord(pending.fileId).catch(() => {});
+    }
+  }
+
+  document.getElementById('ats-panel').hidden = false;
+  document.getElementById('ats-scores').hidden = true;
+  document.getElementById('skills-gap-wrap').hidden = true;
+  document.getElementById('ats-missing-wrap').hidden = true;
+  document.getElementById('ats-download-btn').hidden = true;
+  document.getElementById('ats-docx-note').hidden = true;
+}
+
+async function consumePendingResumeImport(pending) {
+  if (!pending?.text) return;
+
+  await browser.storage.local.remove(RESUME_IMPORT_PENDING_KEY);
+
+  try {
+    await processImportedResume(pending);
+  } catch (error) {
+    if (pending.target === 'resume') {
+      switchTab('resume');
+      const hint = document.getElementById('resume-upload-hint');
+      const name = document.getElementById('resume-upload-name');
+      hint.hidden = true;
+      name.hidden = false;
+      name.textContent = `⚠ ${error.message}`;
+      return;
+    }
+
+    switchTab('profile');
+    const statusEl = document.getElementById('profile-resume-import-status');
+    statusEl.hidden = false;
+    statusEl.textContent = t('importError', error.message);
+  }
+}
+
+browser.runtime.onMessage.addListener((msg) => {
+  if (msg?.type !== 'resume-import-ready') return;
+  return processImportedResume(msg.pending);
+});
 
 // ---------------------------------------------------------------------------
 // Applied jobs — helpers
@@ -2345,6 +2481,11 @@ async function toggleApplied(url, card) {
 // Init
 // ---------------------------------------------------------------------------
 
+// Firefox detection - must be at top level so all handlers can access it
+const isFirefox = typeof browser !== 'undefined' && 
+                  typeof browser.runtime !== 'undefined' && 
+                  typeof browser.runtime.getBrowserInfo === 'function';
+
 document.addEventListener('DOMContentLoaded', () => {
   // Load language preference, apply translations, then init tabs
   localGet(KEYS.LANG).then((result) => {
@@ -2353,6 +2494,15 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAppliedJobs().then(() => loadJobsTab());
     populateJobSelect(_resumeTabJobs);
   });
+
+  // Show stop button if a fetch cycle is already running (alarm-triggered)
+  localGet('fetchCycleLock').then((r) => {
+    const lockedAt = r['fetchCycleLock'];
+    if (lockedAt && Date.now() - lockedAt < 4 * 60 * 1000) {
+      document.getElementById('fetch-now-btn').disabled = true;
+      document.getElementById('stop-fetch-btn').hidden = false;
+    }
+  }).catch(() => {});
 
   // Tab buttons
   document.querySelectorAll('.tab-btn').forEach((btn) => {
@@ -2377,7 +2527,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!link) return;
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    chrome.tabs.create({ url: link.href, active: false });
+    browser.tabs.create({ url: link.href, active: false });
     if (!appliedJobs.has(card.dataset.url)) {
       toggleApplied(card.dataset.url, card);
     }
@@ -2385,48 +2535,101 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Fetch now
   const fetchBtn = document.getElementById('fetch-now-btn');
+  const stopBtn  = document.getElementById('stop-fetch-btn');
+  const clearBtn = document.getElementById('clear-cache-btn');
+
+  stopBtn.addEventListener('click', async () => {
+    stopBtn.disabled = true;
+    stopBtn.textContent = 'Parando...';
+    
+    try {
+      const response = await sendRuntimeMessage({ type: 'STOP_FETCH' });
+      if (response?.ok) {
+        setFetchStatus(t('fetchStopped'), 'warning');
+      }
+    } catch (error) {
+      console.error('Stop fetch error:', error);
+    } finally {
+      stopBtn.hidden = true;
+      stopBtn.disabled = false;
+      stopBtn.textContent = t('stopFetch');
+      fetchBtn.disabled = false;
+      fetchBtn.textContent = t('fetchNow');
+      await loadJobsTab();
+    }
+  });
+
+  clearBtn.addEventListener('click', async () => {
+    clearBtn.disabled = true;
+    try {
+      await sendRuntimeMessage({ type: 'CLEAR_CACHE' });
+      await loadJobsTab();
+      setFetchStatus(t('cacheCleared'), 'success');
+    } catch {
+      // ignore
+    } finally {
+      clearBtn.disabled = false;
+    }
+  });
+
   fetchBtn.addEventListener('click', async () => {
     fetchBtn.disabled    = true;
     fetchBtn.textContent = t('fetching');
+    stopBtn.hidden       = false;
 
     try {
       const existingProfile = await ensureProfileExists();
-      // Persist current UI state when profile has been loaded in this popup session.
       await saveProfileWithFallback(buildProfileFromForm(existingProfile));
       const profile = await getProfileWithFallback() ?? defaultProfile();
       clearFetchStatus();
 
-      const response = await sendRuntimeMessage({ type: 'FETCH_NOW' });
+      // Fire without awaiting so the stop button stays interactive during the cycle.
+      sendRuntimeMessage({ type: 'FETCH_NOW' })
+        .then(async (response) => {
+          stopBtn.hidden       = true;
+          stopBtn.disabled     = false;
+          fetchBtn.disabled    = false;
+          fetchBtn.textContent = t('fetchNow');
 
-      if (!response?.ok) {
-        throw new Error(response?.error || t('fetchFailed'));
-      }
+          if (!response?.ok) {
+            setFetchStatus(t('fetchError', response?.error || t('fetchFailed')), 'error');
+            return;
+          }
 
-      const jobs = response.result?.jobs ?? [];
-      const auth = response.result?.auth ?? null;
-      await loadJobsTab();
+          const jobs = response.result?.jobs ?? [];
+          const auth = response.result?.auth ?? null;
+          await loadJobsTab();
 
-      if (auth?.required) {
-        setFetchStatus(t('loginRequired', auth.label), 'warning');
-        return;
-      }
+          if (auth?.required) {
+            setFetchStatus(t('loginRequired', auth.label), 'warning');
+            return;
+          }
 
-      if (!profile.skills?.length) {
-        setFetchStatus(t('noSkillsInProfile'), 'warning');
-        return;
-      }
+          if (!profile.skills?.length) {
+            setFetchStatus(t('noSkillsInProfile'), 'warning');
+            return;
+          }
 
-      if (!jobs.length) {
-        setFetchStatus(t('noJobsMatched'), 'warning');
-        return;
-      }
+          if (!jobs.length) {
+            setFetchStatus(t('noJobsMatched'), 'warning');
+            return;
+          }
 
-      setFetchStatus(t('jobsFound', jobs.length), 'success');
+          setFetchStatus(t('jobsFound', jobs.length), 'success');
+        })
+        .catch((error) => {
+          stopBtn.hidden       = true;
+          stopBtn.disabled     = false;
+          fetchBtn.disabled    = false;
+          fetchBtn.textContent = t('fetchNow');
+          setFetchStatus(t('fetchError', error.message), 'error');
+        });
     } catch (error) {
-      setFetchStatus(t('fetchError', error.message), 'error');
-    } finally {
+      stopBtn.hidden       = true;
+      stopBtn.disabled     = false;
       fetchBtn.disabled    = false;
       fetchBtn.textContent = t('fetchNow');
+      setFetchStatus(t('fetchError', error.message), 'error');
     }
   });
 
@@ -2452,18 +2655,82 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') document.getElementById('add-skill-btn').click();
   });
 
-  const profileResumeFileInput = document.getElementById('profile-resume-file-input');
-  const profileResumeImportBtn = document.getElementById('profile-resume-import-btn');
+  // Firefox bug #1292701 (open since 2016, still unfixed in FF 150 Nightly 2026):
+  // Any file picker opened from the action popup destroys the popup document,
+  // so change events never fire. Fix: open a real browser window (not the action
+  // popup) that contains the file input. It writes extracted text + routing metadata
+  // to storage.local and keeps large PDF bytes in IndexedDB. We pick it up here via
+  // storage.onChanged, which fires even when the popup was closed and re-opened.
+  //
+  // Chrome/Edge work fine with direct file input, so we only use the workaround
+  // for Firefox.
 
-  profileResumeImportBtn.addEventListener('click', () => {
-    profileResumeFileInput.click();
+  document.getElementById('profile-resume-import-btn').addEventListener('click', () => {
+    if (isFirefox) {
+      // Firefox branch
+      browser.windows.create({
+        url: browser.runtime.getURL('popup/file-picker.html?target=profile'),
+        type: 'normal', // or omit type entirely
+        width: 340,
+        height: 180,
+      });
+    } else {
+      // Chrome/Edge: direct file input works fine
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.pdf,.docx';
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        const statusEl = document.getElementById('profile-resume-import-status');
+        statusEl.hidden = false;
+        statusEl.textContent = t('processingFile', file.name);
+        try {
+          const isPDF = file.name.toLowerCase().endsWith('.pdf');
+          let text = '';
+          if (isPDF) {
+            if (typeof pdfjsLib !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+              pdfjsLib.GlobalWorkerOptions.workerSrc = '../libs/pdf.worker.min.js';
+            }
+            text = await extractTextFromPDF(file);
+          } else {
+            text = await extractTextFromDOCX(file);
+          }
+          const importedSkills = extractSkillsFromResumeText(text);
+          const previous = [...profileSkills];
+          profileSkills = normalizeSkills([...profileSkills, ...importedSkills]);
+          profileStateLoaded = true;
+          renderTags('skills-tags', profileSkills, removeSkill);
+          const added = profileSkills.length - previous.length;
+          if (added <= 0) {
+            statusEl.textContent = t('noSkillsInResume');
+            return;
+          }
+          const existingProfile = await ensureProfileExists();
+          await saveProfileWithFallback(buildProfileFromForm(existingProfile, { forceCurrentState: true }));
+          statusEl.textContent = t('skillsImported', added);
+        } catch (error) {
+          statusEl.textContent = t('importError', error.message);
+        }
+      };
+      input.click();
+    }
   });
 
-  profileResumeFileInput.addEventListener('change', () => {
-    const file = profileResumeFileInput.files?.[0];
-    if (!file) return;
-    importProfileSkillsFromResume(file);
+  // Storage listener handles file imports from Firefox's separate picker window
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes[RESUME_IMPORT_PENDING_KEY]) return;
+    const pending = changes[RESUME_IMPORT_PENDING_KEY].newValue;
+    if (!pending?.text) return;
+    consumePendingResumeImport(pending).catch(() => {});
   });
+
+  // Drain any pending import on popup open
+  localGet(RESUME_IMPORT_PENDING_KEY).then((r) => {
+    const pending = r[RESUME_IMPORT_PENDING_KEY];
+    if (!pending?.text) return;
+    consumePendingResumeImport(pending).catch(() => {});
+  }).catch(() => {});
 
   // Add keyword
   const keywordsInput = document.getElementById('keywords-input');
@@ -2503,16 +2770,30 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---- Resume tab --------------------------------------------------------
 
   const resumeUploadArea = document.getElementById('resume-upload-area');
-  const resumeFileInput  = document.getElementById('resume-file-input');
 
+  // Firefox bug #1292701: file picker closes popup. Use separate window for Firefox only.
   document.getElementById('resume-pick-btn').addEventListener('click', () => {
-    resumeFileInput.click();
+    if (isFirefox) {
+      browser.windows.create({
+        url: browser.runtime.getURL('popup/file-picker.html?target=resume'),
+        type: 'popup',
+        width: 340,
+        height: 180,
+      });
+    } else {
+      // Chrome/Edge: direct file input works fine
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.pdf,.docx';
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (file) await handleResumeFile(file);
+      };
+      input.click();
+    }
   });
 
-  resumeFileInput.addEventListener('change', () => {
-    if (resumeFileInput.files[0]) handleResumeFile(resumeFileInput.files[0]);
-  });
-
+  // Drag-and-drop still works (doesn't trigger popup close)
   resumeUploadArea.addEventListener('dragover', (e) => {
     e.preventDefault();
     resumeUploadArea.classList.add('resume-upload-area--drag');
@@ -2520,11 +2801,11 @@ document.addEventListener('DOMContentLoaded', () => {
   resumeUploadArea.addEventListener('dragleave', () => {
     resumeUploadArea.classList.remove('resume-upload-area--drag');
   });
-  resumeUploadArea.addEventListener('drop', (e) => {
+  resumeUploadArea.addEventListener('drop', async (e) => {
     e.preventDefault();
     resumeUploadArea.classList.remove('resume-upload-area--drag');
     const file = e.dataTransfer.files[0];
-    if (file) handleResumeFile(file);
+    if (file) await handleResumeFile(file);
   });
 
   document.getElementById('ats-analyze-btn').addEventListener('click', runResumeAnalysisForSelectedJob);

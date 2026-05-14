@@ -1,6 +1,8 @@
 # Workaholic
 
-Workaholic is a Chrome extension that monitors job and freelance platforms, applies your filters locally, and notifies you only when new jobs match your profile.
+Workaholic is a cross-browser WebExtension for Firefox, Brave, Opera, Chromium, and Chrome that monitors job and freelance platforms, applies your filters locally, and notifies you only when new jobs match your profile.
+
+https://github.com/user-attachments/assets/6e38c157-889b-4906-89df-641f58043450
 
 ---
 
@@ -25,17 +27,69 @@ Workaholic is a Chrome extension that monitors job and freelance platforms, appl
 - Indeed (BR)
 - Gupy
 
-### Install in Chrome (Developer Mode)
+### Install in Chromium Browsers (Chrome, Brave, Opera, Chromium)
 
-1. Download or clone this project.
-2. Open Chrome at `chrome://extensions`.
-3. Enable `Developer mode`.
-4. Click `Load unpacked`.
-5. Select the project root folder.
+**For Users (Pre-built):**
+
+1. Download the latest release from the Releases page.
+2. Extract the ZIP file.
+3. Open your browser extensions page:
+   - Chrome/Brave/Chromium: `chrome://extensions`
+   - Opera: `opera://extensions`
+4. Enable `Developer mode`.
+5. Click `Load unpacked`.
+6. Select the extracted folder.
+
+
+**For Developers:**
+
+1. Clone this repository.
+2. Install dependencies: `npm install`
+3. Open your browser extensions page (see above).
+4. Enable `Developer mode`.
+5. Click `Load unpacked`.
+6. Select the project root folder.
+
+
+https://github.com/user-attachments/assets/6ad8c9de-f772-407a-8845-274b20ce00f8
+
+### Install in Firefox (Temporary Add-on)
+
+**For Users (Pre-built):**
+
+1. Download the latest release from the Releases page.
+2. Extract the ZIP file.
+3. Open Firefox at `about:debugging`.
+4. Click `This Firefox`.
+5. Click `Load Temporary Add-on`.
+6. Select the `.xpi` file from the extracted folder.
+
+
+**For Developers:**
+
+1. Clone this repository.
+2. Install dependencies: `npm install`
+3. Build Firefox package: `npm run build`
+4. Open Firefox at `about:debugging`.
+5. Click `This Firefox`.
+6. Click `Load Temporary Add-on`.
+7. Select the .xpi file from the build.
+
+
+https://github.com/user-attachments/assets/9041a8aa-9a2b-4b88-93bf-4867037549de
+
+### Firefox Signed Distribution
+
+- `workaholic-firefox-unsigned.xpi` is only a packaged artifact. Release and Beta Firefox builds still require AMO signing before installation.
+- Build unsigned packages with `npm run build`.
+- Sign an unlisted Firefox package with `npm run sign:firefox`.
+- Sign a listed AMO submission with `npm run sign:firefox:listed`.
+- Set `AMO_JWT_ISSUER` and `AMO_JWT_SECRET` in your shell before signing.
+- Update `docs/amo-metadata.json` before the first listed submission on AMO.
 
 ### First-Time Setup
 
-1. Click the extension icon in Chrome.
+1. Click the extension icon in your browser.
 2. Open the `Perfil` tab.
 3. Add your skills.
 4. Select your main area.
@@ -111,9 +165,9 @@ How it works: after importing your resume, select a job to compare `Antes` and `
 2. Click `Reload` on Workaholic.
 3. Open the popup and click `Buscar agora`.
 
-#### Service worker error
+#### Background/service worker error
 
-Reload the extension in `chrome://extensions`. If it persists, open `Errors` and inspect the latest stack trace.
+Reload the extension in `chrome://extensions`, `opera://extensions`, or `about:debugging#/runtime/this-firefox`. If it persists, inspect the latest background error entry for the extension.
 
 #### Too few matched jobs
 
@@ -126,12 +180,15 @@ Reload the extension in `chrome://extensions`. If it persists, open `Errors` and
 
 - Filtering and processing run locally.
 - No external backend is required for matching logic.
-- Profile and job state are stored in Chrome extension storage.
+- Profile and job state are stored in browser extension storage.
 
 ### Development
 
 - Run tests: `npm test`
 - Coverage: `npm run test:coverage`
+- Build distributables: `npm run build`
+- Lint for Firefox/AMO compatibility: `npm run lint:firefox`
+- Sign Firefox for self-distribution: `npm run sign:firefox`
 - Main folders:
   - `background/` scheduling and orchestration
   - `popup/` extension UI
@@ -150,13 +207,13 @@ MIT
 
 ### Funcionalidades
 
-- Busca vagas em varias plataformas.
-- Aplica filtros por perfil: habilidades, palavras-chave/cargo, palavras bloqueadas, orcamento minimo e plataformas ativas.
-- Calcula score de aderencia com base nas habilidades exigidas pela vaga.
-- Enriquece vagas com pouco metadado extraindo habilidades de titulo e descricao.
+- Busca vagas em várias plataformas.
+- Aplica filtros por perfil: habilidades, palavras-chave/cargo, palavras bloqueadas, orçamento mínimo e plataformas ativas.
+- Calcula score de aderência com base nas habilidades exigidas pela vaga.
+- Enriquece vagas com pouco metadado extraindo habilidades de título e descrição.
 - Remove duplicatas de vagas repetidas no mesmo ciclo.
 - Notifica somente vagas novas que passaram no filtro.
-- Executa buscas automaticas em background no intervalo configurado.
+- Executa buscas automáticas em background no intervalo configurado.
 
 ### Plataformas Suportadas
 
@@ -167,121 +224,162 @@ MIT
 - Indeed (BR)
 - Gupy
 
-### Instalacao no Chrome (Modo Desenvolvedor)
+### Instalação em navegadores Chromium (Chrome, Brave, Opera, Chromium)
 
-1. Baixe ou clone este projeto.
-2. Abra o Chrome em `chrome://extensions`.
-3. Ative `Modo do desenvolvedor`.
-4. Clique em `Carregar sem compactacao`.
-5. Selecione a pasta raiz do projeto.
+**Para Usuários (Pré-compilado):**
 
-### Configuracao Inicial
+1. Baixe a versão mais recente na página de Releases.
+2. Extraia o arquivo ZIP.
+3. Abra a página de extensões do navegador:
+   - Chrome/Brave/Chromium: `chrome://extensions`
+   - Opera: `opera://extensions`
+4. Ative `Modo do desenvolvedor`.
+5. Clique em `Carregar sem compactação`.
+6. Selecione a pasta extraída.
 
-1. Clique no icone da extensao no Chrome.
+**Para Desenvolvedores:**
+
+1. Clone este repositório.
+2. Instale dependências: `npm install`
+3. Abra a página de extensões (veja acima).
+4. Ative `Modo do desenvolvedor`.
+5. Clique em `Carregar sem compactação`.
+6. Selecione a pasta raiz do projeto.
+
+https://github.com/user-attachments/assets/6ad8c9de-f772-407a-8845-274b20ce00f8
+
+### Instalação no Firefox (Extensão temporária)
+
+**Para Usuários (Pré-compilado):**
+
+1. Baixe a versão mais recente na página de Releases.
+2. Extraia o arquivo ZIP.
+3. Abra o Firefox em `about:debugging`.
+4. Clique em `Este Firefox`.
+5. Clique em `Carregar extensão temporária`.
+6. Selecione o arquivo `.xpi` .
+
+https://github.com/user-attachments/assets/9041a8aa-9a2b-4b88-93bf-4867037549de
+
+### Distribuição Assinada no Firefox
+
+- `workaholic-firefox-unsigned.xpi` é apenas um pacote gerado. O Firefox Release e Beta ainda exigem assinatura pela AMO antes da instalação.
+- Gere os pacotes com `npm run build`.
+- Assine para distribuição própria (unlisted) com `npm run sign:firefox`.
+- Assine para listagem pública na AMO com `npm run sign:firefox:listed`.
+- Defina `AMO_JWT_ISSUER` e `AMO_JWT_SECRET` no shell antes de assinar.
+- Atualize `docs/amo-metadata.json` antes da primeira submissão listada na AMO.
+
+### Configuração Inicial
+
+1. Clique no ícone da extensão no navegador.
 2. Abra a aba `Perfil`.
 3. Cadastre suas habilidades.
-4. Selecione sua area principal.
-5. Defina orcamento minimo e moeda (opcional).
+4. Selecione sua área principal.
+5. Defina orçamento mínimo e moeda (opcional).
 6. Adicione palavras-chave/cargo para busca mais assertiva (opcional).
-7. Adicione palavras bloqueadas para excluir titulos indesejados (opcional).
+7. Adicione palavras bloqueadas para excluir títulos indesejados (opcional).
 8. Marque as plataformas que deseja monitorar.
-9. Ajuste a frequencia de busca.
+9. Ajuste a frequência de busca.
 10. Clique em `Salvar`.
 
 ### Como Funciona o Match
 
-- As vagas sao normalizadas para um formato unico.
-- O score principal usa a visao da vaga:
+- As vagas são normalizadas para um formato único.
+- O score principal usa a visão da vaga:
   `(habilidades suas que batem com a vaga / total de habilidades exigidas pela vaga) * 100`.
-- Quando a vaga nao traz habilidades estruturadas, o sistema tenta inferir habilidades pela descricao e titulo.
-- Para vagas enriquecidas e esparsas, o score usa uma regra conservadora para evitar inflacao artificial.
-- O filtro final considera combinacao de score minimo dinamico e quantidade minima de matches.
+- Quando a vaga não traz habilidades estruturadas, o sistema tenta inferir habilidades pela descrição e título.
+- Para vagas enriquecidas e esparsas, o score usa uma regra conservadora para evitar inflação artificial.
+- O filtro final considera combinação de score mínimo dinâmico e quantidade mínima de matches.
 
 ### Fluxo de Filtragem
 
-1. Valida se a plataforma esta habilitada.
-2. Remove vagas com palavras bloqueadas no titulo.
+1. Valida se a plataforma está habilitada.
+2. Remove vagas com palavras bloqueadas no título.
 3. Aplica filtro de palavras-chave/cargo (quando configurado).
-4. Aplica orcamento minimo (quando houver valor de vaga).
+4. Aplica orçamento mínimo (quando houver valor de vaga).
 5. Calcula matches e score.
-6. Remove vagas abaixo dos limiares minimos.
+6. Remove vagas abaixo dos limiares mínimos.
 7. Deduplica resultados repetidos.
 8. Ordena por score (maior para menor).
 
-### Curriculo Inteligente (Aba Curriculo)
+### Currículo Inteligente (Aba Currículo)
 
 - Importa PDF ou DOCX.
-- Extrai habilidades de forma controlada para evitar ruido.
-- Usa catalogo de termos e sinonimos para reduzir falsos positivos.
-- Permite analisar uma vaga e sugerir ajustes de palavras-chave para o curriculo.
+- Extrai habilidades de forma controlada para evitar ruído.
+- Usa catálogo de termos e sinônimos para reduzir falsos positivos.
+- Permite analisar uma vaga e sugerir ajustes de palavras-chave para o currículo.
 
 ### Screenshots
 
-As imagens abaixo correspondem aos 3 screenshots enviados (Vagas, Perfil e Curriculo). Coloque os arquivos em docs/screenshots/ com os nomes abaixo para exibicao automatica no README.
+As imagens abaixo correspondem aos 3 screenshots enviados (Vagas, Perfil e Currículo). Coloque os arquivos em docs/screenshots/ com os nomes abaixo para exibição automática no README.
 
 #### 1) Aba Vagas - disparo manual de busca
 
 ![Aba Vagas: botao Buscar agora e status da ultima busca](docs/screenshots/01-vagas.png)
 
 Legenda: tela principal para iniciar uma varredura imediata.
-Como funciona: ao clicar em `Buscar agora`, a extensao coleta vagas nas plataformas habilitadas, aplica filtros e atualiza o total encontrado.
+Como funciona: ao clicar em `Buscar agora`, a extensão coleta vagas nas plataformas habilitadas, aplica filtros e atualiza o total encontrado.
 
 #### 2) Aba Perfil - configuracao dos filtros
 
-![Aba Perfil: habilidades, area, orcamento, palavras-chave, bloqueios e plataformas](docs/screenshots/02-perfil.png)
+![Aba Perfil: habilidades, área, orçamento, palavras-chave, bloqueios e plataformas](docs/screenshots/02-perfil.png)
 
-Legenda: painel de personalizacao de criterios de busca.
-Como funciona: voce define o que deseja encontrar e o que deve ser ignorado. Esses dados alimentam o calculo de match e o filtro das vagas.
+Legenda: painel de personalização de critérios de busca.
+Como funciona: você define o que deseja encontrar e o que deve ser ignorado. Esses dados alimentam o cálculo de match e o filtro das vagas.
 
 #### 3) Aba Curriculo - importacao e otimizacao
 
-![Aba Curriculo: importacao de arquivo e analise antes/depois](docs/screenshots/03-curriculo.png)
+![Aba Currículo: importação de arquivo e análise antes/depois](docs/screenshots/03-curriculo.png)
 
-Legenda: modulo de importacao de curriculo e analise de aderencia.
-Como funciona: apos importar o curriculo, selecione uma vaga para comparar `Antes` e `Depois`, visualizar `Match de skills da vaga` e baixar uma versao otimizada.
+Legenda: módulo de importação de currículo e análise de aderência.
+Como funciona: após importar o currículo, selecione uma vaga para comparar `Antes` e `Depois`, visualizar `Match de skills da vaga` e baixar uma versão otimizada.
 
-### Notificacoes
+### Notificações
 
-- Apenas vagas novas e aprovadas no filtro geram notificacao.
-- O badge da extensao mostra a quantidade de novas vagas no ultimo ciclo.
+- Apenas vagas novas e aprovadas no filtro geram notificação.
+- O badge da extensão mostra a quantidade de novas vagas no último ciclo.
 
-### Solucao de Problemas
+### Solução de Problemas
 
-#### Nao atualiza vagas
+#### Não atualiza vagas
 
 1. Abra `chrome://extensions`.
-2. Clique em `Recarregar` na extensao Workaholic.
+2. Clique em `Recarregar` na extensão Workaholic.
 3. Volte ao popup e clique em `Buscar agora`.
 
-#### Erro de service worker
+#### Erro de background/service worker
 
-Recarregue a extensao em `chrome://extensions`. Se persistir, abra `Erros` e verifique o stack trace mais recente.
+Recarregue a extensão em `chrome://extensions`, `opera://extensions` ou `about:debugging#/runtime/this-firefox`. Se persistir, abra a entrada de erro/background mais recente da extensão.
 
 #### Poucas vagas com match
 
 - Revise suas habilidades no perfil.
-- Reduza restricoes em palavras-chave/cargo e palavras bloqueadas.
-- Confirme se as plataformas desejadas estao ativas.
+- Reduza restrições em palavras-chave/cargo e palavras bloqueadas.
+- Confirme se as plataformas desejadas estão ativas.
 - Execute uma nova busca manual para validar o ajuste.
 
 ### Privacidade
 
-- O filtro e o processamento sao locais.
-- Nao ha backend externo obrigatorio para logica de matching.
-- Perfil e estado das vagas ficam no storage da extensao Chrome.
+- O filtro e o processamento são locais.
+- Não há backend externo obrigatório para lógica de matching.
+- Perfil e estado das vagas ficam no storage da extensão do navegador.
 
 ### Desenvolvimento
 
 - Executar testes: `npm test`
 - Cobertura de testes: `npm run test:coverage`
+- Gerar pacotes: `npm run build`
+- Validar compatibilidade Firefox/AMO: `npm run lint:firefox`
+- Assinar pacote Firefox: `npm run sign:firefox`
 - Pastas principais:
-  - `background/` orquestracao e agendamento
-  - `popup/` interface da extensao
+  - `background/` orquestração e agendamento
+  - `popup/` interface da extensão
   - `parsers/` parsers HTML por plataforma
   - `scrapers/` content scripts por plataforma
-  - `shared/` normalizacao, filtro e storage
+  - `shared/` normalização, filtro e storage
   - `tests/` testes automatizados e fixtures
 
-### Licenca
+### Licença
 
 MIT

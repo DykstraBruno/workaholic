@@ -1,46 +1,104 @@
 (function () {
 'use strict';
 
-// careerbuildercareers.com uses an AngularJS table layout:
-//   #job-result-table > tr.job-result
-//     td[0]: a.job-result-title (title + link)
-//     td[1]: company name
-//     td[2]: location
-//     td[3]: date posted
-// Job URL pattern: /en-US/job/{slug}/{id} (relative or absolute)
+// CareerBuilder.com uses multiple possible layouts:
+// 1. Modern: article.job-listing, div[data-job-id], div.job-card
+// 2. Legacy: tr.job-result (table layout)
+// 3. JSON-LD structured data in script tags
 const SELECTORS = {
   card: [
+    'article.job-listing',
+    'div[data-job-id]',
+    'div.job-card',
+    'div[class*="job-result"]',
     'tr.job-result',
+    'li[data-job-id]',
   ],
   title: [
+    'h2 a',
+    'a.job-title',
+    'a[data-job-title]',
     'a.job-result-title',
+    '[class*="job-title"] a',
+    'h3 a',
+  ],
+  company: [
+    '[class*="company"]',
+    '[data-company]',
+    'span.company',
+    'div.company-name',
+  ],
+  location: [
+    '[class*="location"]',
+    '[data-location]',
+    'span.location',
+    'div.job-location',
   ],
   description: [],
   skills: [],
   budget: [],
-  postedAt: [],
+  postedAt: [
+    '[class*="posted"]',
+    '[class*="date"]',
+    'time',
+  ],
 };
-
-// Column indices in the tr.job-result table row
-const COL = { TITLE: 0, COMPANY: 1, LOCATION: 2, DATE: 3 };
 
 function toAbsoluteUrl(url, base) {
   if (!url) return '';
   try {
-    return new URL(url, base).href;
+    const fullUrl = new URL(url, base).href;
+    // Handle careerbuildercareers.com domain (used in some job links)
+    return fullUrl.replace('://www.careerbuilder.com', '://www.careerbuildercareers.com');
   } catch {
     return '';
   }
 }
 
+function findElement(parent, selectors) {
+  for (const selector of selectors) {
+    const el = parent.querySelector(selector);
+    if (el) return el;
+  }
+  return null;
+}
+
+function extractFromJsonLd(doc) {
+  const jobs = [];
+  const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+  
+  for (const script of scripts) {
+    try {
+      const data = JSON.parse(script.textContent || '');
+      const items = Array.isArray(data) ? data : [data];
+      
+      for (const item of items) {
+        if (item['@type'] === 'JobPosting') {
+          const url = item.url || item.identifier?.url || '';
+          if (!url) continue;
+          
+          jobs.push({
+            title: item.title || '',
+            description: [item.hiringOrganization?.name, item.jobLocation?.address?.addressLocality]
+              .filter(Boolean).join(' — '),
+            skills: [],
+            budget: item.baseSalary?.value?.value || null,
+            url: toAbsoluteUrl(url, 'https://www.careerbuildercareers.com'),
+            postedAt: item.datePosted || '',
+          });
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+  
+  return jobs;
+}
+
 /**
- * Pure parser for CareerBuilder (careerbuildercareers.com) job HTML.
- * The site uses AngularJS and renders jobs into an #job-result-table
- * with rows of class .job-result. Each row has 4 td columns:
- *   [0] title (a.job-result-title) + link
- *   [1] company name
- *   [2] location
- *   [3] date posted
+ * Pure parser for CareerBuilder job HTML.
+ * Handles multiple layout variations and JSON-LD structured data.
  *
  * @param {string} html
  * @returns {Array<{title: string, description: string, skills: string[], budget: null, url: string, postedAt: string}>}
@@ -49,40 +107,69 @@ function parseCareerBuilder(html) {
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(String(html || ''), 'text/html');
-
-    const rows = doc.querySelectorAll('tr.job-result');
-    if (!rows.length) return [];
-
     const BASE = 'https://www.careerbuildercareers.com';
+
+    // Try JSON-LD first (most reliable)
+    const jsonJobs = extractFromJsonLd(doc);
+    if (jsonJobs.length > 0) return jsonJobs;
+
     const jobs = [];
 
-    for (const row of rows) {
-      const tds = row.querySelectorAll('td');
-      const titleAnchor = row.querySelector('a.job-result-title');
-      if (!titleAnchor) continue;
+    // Try each card selector
+    for (const cardSelector of SELECTORS.card) {
+      const cards = doc.querySelectorAll(cardSelector);
+      if (!cards.length) continue;
 
-      const title = (titleAnchor.textContent || '').trim();
-      if (!title) continue;
+      for (const card of cards) {
+        // Find title link
+        const titleEl = findElement(card, SELECTORS.title);
+        if (!titleEl) continue;
 
-      const rawHref = (titleAnchor.getAttribute('href') || '').trim();
-      const url = toAbsoluteUrl(rawHref, BASE);
-      if (!url) continue;
+        const title = (titleEl.textContent || '').trim();
+        if (!title) continue;
 
-      // td[1] = company, td[2] = location, td[3] = date
-      const company = tds[COL.COMPANY] ? (tds[COL.COMPANY].textContent || '').trim() : '';
-      const location = tds[COL.LOCATION] ? (tds[COL.LOCATION].textContent || '').trim() : '';
-      const postedAt = tds[COL.DATE] ? (tds[COL.DATE].textContent || '').trim() : '';
+        const rawHref = (titleEl.getAttribute('href') || '').trim();
+        const url = toAbsoluteUrl(rawHref, BASE);
+        if (!url) continue;
 
-      const description = [company, location].filter(Boolean).join(' — ');
+        // Extract company, location, and date
+        let company = '';
+        let location = '';
+        let postedAt = '';
 
-      jobs.push({
-        title,
-        description,
-        skills: [],
-        budget: null,
-        url,
-        postedAt,
-      });
+        // For table rows (tr.job-result), data is in sibling <td> cells
+        if (card.tagName === 'TR') {
+          const cells = card.querySelectorAll('td');
+          if (cells.length >= 4) {
+            company = (cells[1].textContent || '').trim();
+            location = (cells[2].textContent || '').trim();
+            postedAt = (cells[3].textContent || '').trim();
+          }
+        } else {
+          // For card layouts, look for nested elements
+          const companyEl = findElement(card, SELECTORS.company);
+          const locationEl = findElement(card, SELECTORS.location);
+          const postedEl = findElement(card, SELECTORS.postedAt);
+
+          company = companyEl ? (companyEl.textContent || '').trim() : '';
+          location = locationEl ? (locationEl.textContent || '').trim() : '';
+          postedAt = postedEl ? (postedEl.textContent || postedEl.getAttribute('datetime') || '').trim() : '';
+        }
+
+        const description = [company, location].filter(Boolean).join(' — ');
+
+        jobs.push({
+          title,
+          description,
+          skills: [],
+          budget: null,
+          url,
+          postedAt,
+        });
+      }
+
+      // If we found jobs with this selector, return them
+      if (jobs.length > 0) break;
     }
 
     return jobs;

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Import Resume</title>
+  <script src="../libs/browser-polyfill.js"></script>
+  <script src="../libs/pdf.min.js"></script>
+  <script src="../libs/mammoth.browser.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="file-picker.css" />
+</head>
+<body>
+  <div class="container">
+    <h2 id="heading"></h2>
+    <label for="file-input">
+      <span class="label-icon">📄</span>
+      <span class="label-text" id="label-main"></span>
+      <span class="label-sub">PDF · DOCX</span>
+      <input type="file" id="file-input" accept=".pdf,.docx" />
+    </label>
+    <p id="status"></p>
+  </div>
+  <script src="locale.js"></script>
+  <script src="file-picker.js"></script>
+</body>
+</html>
