@@ -26,6 +26,10 @@ https://github.com/user-attachments/assets/6e38c157-889b-4906-89df-641f58043450
 - LinkedIn
 - Indeed (BR)
 - Gupy
+- Freelancer
+- We Work Remotely
+- PeoplePerHour
+- Guru
 
 ### Install in Chromium Browsers (Chrome, Brave, Opera, Chromium)
 
@@ -44,11 +48,12 @@ https://github.com/user-attachments/assets/6e38c157-889b-4906-89df-641f58043450
 **For Developers:**
 
 1. Clone this repository.
-2. Install dependencies: `npm install`
-3. Open your browser extensions page (see above).
-4. Enable `Developer mode`.
-5. Click `Load unpacked`.
-6. Select the project root folder.
+2. Open your browser extensions page (see above).
+3. Enable `Developer mode`.
+4. Click `Load unpacked`.
+5. Select the project root folder.
+
+`npm install` is only required to run tests or build packages — the extension loads unpacked as-is.
 
 
 https://github.com/user-attachments/assets/6ad8c9de-f772-407a-8845-274b20ce00f8
@@ -223,6 +228,10 @@ MIT
 - LinkedIn
 - Indeed (BR)
 - Gupy
+- Freelancer
+- We Work Remotely
+- PeoplePerHour
+- Guru
 
 ### Instalação em navegadores Chromium (Chrome, Brave, Opera, Chromium)
 
@@ -240,11 +249,12 @@ MIT
 **Para Desenvolvedores:**
 
 1. Clone este repositório.
-2. Instale dependências: `npm install`
-3. Abra a página de extensões (veja acima).
-4. Ative `Modo do desenvolvedor`.
-5. Clique em `Carregar sem compactação`.
-6. Selecione a pasta raiz do projeto.
+2. Abra a página de extensões (veja acima).
+3. Ative `Modo do desenvolvedor`.
+4. Clique em `Carregar sem compactação`.
+5. Selecione a pasta raiz do projeto.
+
+`npm install` só é necessário para rodar testes ou gerar pacotes — a extensão carrega sem compactação como está.
 
 https://github.com/user-attachments/assets/6ad8c9de-f772-407a-8845-274b20ce00f8
 
