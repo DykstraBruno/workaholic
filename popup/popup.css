@@ -51,7 +51,6 @@
   --site-weworkremotely: #1ABC9C;
   --site-peopleperhour:  #E85B2E;
   --site-guru:           #57B847;
-  --site-careerbuilder:  #FF6600;
 
   --site-upwork-bg:    rgba(20,168,0,.10);
   --site-workana-bg:   rgba(0,119,181,.10);
@@ -63,7 +62,6 @@
   --site-weworkremotely-bg: rgba(26,188,156,.10);
   --site-peopleperhour-bg:  rgba(232,91,46,.10);
   --site-guru-bg:           rgba(87,184,71,.10);
-  --site-careerbuilder-bg:  rgba(255,102,0,.10);
 
   --radius-xs:   4px;
   --radius-sm:   8px;
@@ -629,7 +627,6 @@ body {
 .job-card[data-site="weworkremotely"] { border-left-color: var(--site-weworkremotely); }
 .job-card[data-site="peopleperhour"]  { border-left-color: var(--site-peopleperhour); }
 .job-card[data-site="guru"]           { border-left-color: var(--site-guru); }
-.job-card[data-site="careerbuilder"]  { border-left-color: var(--site-careerbuilder); }
 
 .job-card-header,
 .job-card-top {
@@ -699,7 +696,6 @@ body {
 .badge-site--weworkremotely { background: var(--site-weworkremotely); }
 .badge-site--peopleperhour  { background: var(--site-peopleperhour); }
 .badge-site--guru           { background: var(--site-guru); }
-.badge-site--careerbuilder  { background: var(--site-careerbuilder); }
 
 .badge-score {
   position: relative;
@@ -1039,7 +1035,6 @@ select.input {
 .checkbox-label[data-site="weworkremotely"]:has(input:checked)  { background: var(--site-weworkremotely-bg);  border-color: var(--site-weworkremotely); color: var(--site-weworkremotely); box-shadow: 0 2px 6px rgba(26,188,156,.18); }
 .checkbox-label[data-site="peopleperhour"]:has(input:checked)   { background: var(--site-peopleperhour-bg);   border-color: var(--site-peopleperhour);  color: var(--site-peopleperhour); box-shadow: 0 2px 6px rgba(232,91,46,.18); }
 .checkbox-label[data-site="guru"]:has(input:checked)            { background: var(--site-guru-bg);            border-color: var(--site-guru);           color: var(--site-guru); box-shadow: 0 2px 6px rgba(87,184,71,.18); }
-.checkbox-label[data-site="careerbuilder"]:has(input:checked)   { background: var(--site-careerbuilder-bg);   border-color: var(--site-careerbuilder);  color: var(--site-careerbuilder); box-shadow: 0 2px 6px rgba(255,102,0,.18); }
 
 /* =========================================================
    Buttons

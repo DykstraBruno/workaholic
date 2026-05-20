@@ -26,19 +26,11 @@
     "https://www.freelancer.com/*",
     "https://weworkremotely.com/*",
     "https://www.peopleperhour.com/*",
-    "https://www.guru.com/*",
-    "https://www.careerbuilder.com/*"
+    "https://www.guru.com/*"
   ],
 
   "background": {
-    "service_worker": "background/service-worker.js",
-    "scripts": [
-      "libs/browser-polyfill.js",
-      "shared/storage.js",
-      "shared/normalizer.js",
-      "shared/filter.js",
-      "background/service-worker.js"
-    ]
+    "service_worker": "background/service-worker.js"
   },
 
   "browser_specific_settings": {
@@ -83,8 +75,7 @@
         "https://www.freelancer.com/*",
         "https://weworkremotely.com/*",
         "https://www.peopleperhour.com/*",
-        "https://www.guru.com/*",
-        "https://www.careerbuilder.com/*"
+        "https://www.guru.com/*"
       ]
     },
     {
