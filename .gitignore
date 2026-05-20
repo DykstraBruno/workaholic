@@ -4,6 +4,3 @@ coverage/
 claude.md
 dist-cws/
 workaholic-cws.zip
-
-# Mozilla webextension-polyfill (generated from node_modules)
-libs/browser-polyfill.js

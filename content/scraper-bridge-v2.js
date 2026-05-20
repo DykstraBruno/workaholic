@@ -70,10 +70,6 @@
 				parse: () => globalThis.parseGuru,
 				selectors: () => globalThis.GURU_SELECTORS,
 			},
-			careerbuilder: {
-				parse: () => globalThis.parseCareerBuilder,
-				selectors: () => globalThis.CAREERBUILDER_SELECTORS,
-			},
 		}[site] || null;
 	}
 

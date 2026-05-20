@@ -101,6 +101,15 @@ function Set-ManifestVariant {
         if ($manifest.background.PSObject.Properties.Name -contains 'preferred_environment') {
             $manifest.background.PSObject.Properties.Remove('preferred_environment')
         }
+        if (-not ($manifest.background.PSObject.Properties.Name -contains 'scripts')) {
+            $manifest.background | Add-Member -NotePropertyName 'scripts' -NotePropertyValue @(
+                'libs/browser-polyfill.js',
+                'shared/storage.js',
+                'shared/normalizer.js',
+                'shared/filter.js',
+                'background/service-worker.js'
+            )
+        }
 
         if (-not $manifest.browser_specific_settings) {
             $manifest | Add-Member -NotePropertyName 'browser_specific_settings' -NotePropertyValue ([pscustomobject]@{})
