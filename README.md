@@ -17,6 +17,10 @@ https://github.com/user-attachments/assets/6e38c157-889b-4906-89df-641f58043450
 - Removes duplicate jobs from the same cycle.
 - Notifies only new jobs that passed filtering.
 - Runs automatic background scans at the configured interval.
+- Local CRM with Kanban panel: every job you mark as applied is mirrored into an 8-column board (Candidatado, Em Analise, Entrevista, Teste Tecnico, Proposta, Aprovado, Rejeitado, Arquivado).
+- Drag-and-drop status updates with optimistic UI and automatic rollback on failure.
+- Daily follow-up alarm at 09:00 local: generates a context-aware message per pending candidatura and pushes a browser notification. Click to copy the message to the clipboard.
+- Export/import the full CRM (applications + portfolio) as a single JSON file.
 
 ### Supported Platforms
 
@@ -132,6 +136,21 @@ https://github.com/user-attachments/assets/9041a8aa-9a2b-4b88-93bf-4867037549de
 - Uses a synonym and term catalog to reduce false positives.
 - Lets you analyze a selected job and suggest resume keyword improvements.
 
+### Apply Tracking & Kanban Panel
+
+- Clicking the `+` button on a job card or downloading the ATS-optimized resume automatically registers the job as a candidatura in the local CRM. Title, link, platform, and description are captured from the scraper output — no manual entry needed.
+- Deduplication is based on the normalized job URL, so re-clicking the same card never creates a duplicate record.
+- Open the `📋 Painel` button in the jobs toolbar to launch the Kanban dashboard in a new tab. It renders all candidaturas across 8 status columns and supports drag-and-drop reordering.
+- Each card exposes three quick actions: regenerate the follow-up message, copy it to the clipboard, or delete the candidatura.
+- The header has `Exportar` and `Importar` buttons that download/upload a dated JSON snapshot containing both your candidaturas and your project portfolio. Import is non-destructive (skips IDs that already exist).
+
+### Follow-up Reminders
+
+- A daily alarm fires at 09:00 local time and scans candidaturas whose follow-up date has arrived (3 days for freelancer platforms like Upwork/Workana, 7 days for recruiter platforms like Gupy/LinkedIn).
+- For each pending candidatura, the extension generates a tone-adapted message (freelancer vs recruiter, default gentle mode) and shows a notification.
+- Clicking the notification opens the extension popup as a tab and copies the message directly to the clipboard, ready to paste into the platform's chat or message field.
+- Each candidatura is notified only once per follow-up cycle (tracked via `notificado_em`).
+
 ### Screenshots
 
 The images below are the 3 provided screenshots (Jobs, Profile, Resume). Save them to docs/screenshots/ with the filenames below to render them automatically in this README.
@@ -195,11 +214,11 @@ Reload the extension in `chrome://extensions`, `opera://extensions`, or `about:d
 - Lint for Firefox/AMO compatibility: `npm run lint:firefox`
 - Sign Firefox for self-distribution: `npm run sign:firefox`
 - Main folders:
-  - `background/` scheduling and orchestration
-  - `popup/` extension UI
+  - `background/` scheduling, orchestration, follow-up alarm
+  - `popup/` extension UI (`popup.html`, `dashboard.html`)
   - `parsers/` pure HTML parsers by platform
   - `scrapers/` platform content scripts
-  - `shared/` normalization, filtering, and storage
+  - `shared/` normalization, filtering, storage, CRM modules (`applications.js`, `portfolio.js`, `followup-rules.js`, `followup-message.js`)
   - `tests/` automated tests and fixtures
 
 ### License
@@ -219,6 +238,10 @@ MIT
 - Remove duplicatas de vagas repetidas no mesmo ciclo.
 - Notifica somente vagas novas que passaram no filtro.
 - Executa buscas automáticas em background no intervalo configurado.
+- CRM local com painel Kanban: toda vaga marcada como candidatado é espelhada num quadro de 8 colunas (Candidatado, Em Analise, Entrevista, Teste Tecnico, Proposta, Aprovado, Rejeitado, Arquivado).
+- Drag-and-drop entre colunas com UI otimista e rollback automático em caso de falha.
+- Alarme diário de follow-up às 09:00 local: gera mensagem contextual por candidatura pendente e dispara notificação no navegador. Clique copia a mensagem para a área de transferência.
+- Exportar/importar todo o CRM (candidaturas + portfolio) como um único arquivo JSON.
 
 ### Plataformas Suportadas
 
@@ -320,6 +343,21 @@ https://github.com/user-attachments/assets/9041a8aa-9a2b-4b88-93bf-4867037549de
 - Usa catálogo de termos e sinônimos para reduzir falsos positivos.
 - Permite analisar uma vaga e sugerir ajustes de palavras-chave para o currículo.
 
+### Rastreamento de Candidaturas & Painel Kanban
+
+- Clicar no botão `+` de um card de vaga ou baixar o currículo otimizado registra automaticamente a vaga como candidatura no CRM local. Título, link, plataforma e descrição são capturados do scraper — sem digitar nada.
+- Deduplicação por URL normalizada: clicar duas vezes na mesma vaga nunca cria registro duplicado.
+- O botão `📋 Painel` na barra de ferramentas da aba Vagas abre o dashboard Kanban em uma nova aba. Mostra todas as candidaturas nas 8 colunas com drag-and-drop entre elas.
+- Cada cartão tem três ações rápidas: regenerar mensagem de follow-up, copiar para clipboard, excluir candidatura.
+- O cabeçalho tem botões `Exportar` e `Importar` que baixam/carregam um snapshot JSON com data, contendo candidaturas e portfolio. Import não destrói registros existentes (skipa IDs duplicados).
+
+### Lembretes de Follow-up
+
+- Alarme diário às 09:00 local varre candidaturas cuja data de follow-up chegou (3 dias para plataformas freelancer como Upwork/Workana, 7 dias para plataformas tradicionais como Gupy/LinkedIn).
+- Para cada candidatura pendente, a extensão gera uma mensagem com tom adaptado (freelancer vs recrutador, modo padrão gentil) e dispara notificação.
+- Clicar na notificação abre o popup da extensão como aba e copia a mensagem direto para a área de transferência, pronta pra colar no chat da plataforma.
+- Cada candidatura é notificada apenas uma vez por ciclo de follow-up (controle via `notificado_em`).
+
 ### Screenshots
 
 As imagens abaixo correspondem aos 3 screenshots enviados (Vagas, Perfil e Currículo). Coloque os arquivos em docs/screenshots/ com os nomes abaixo para exibição automática no README.
@@ -383,11 +421,11 @@ Recarregue a extensão em `chrome://extensions`, `opera://extensions` ou `about:
 - Validar compatibilidade Firefox/AMO: `npm run lint:firefox`
 - Assinar pacote Firefox: `npm run sign:firefox`
 - Pastas principais:
-  - `background/` orquestração e agendamento
-  - `popup/` interface da extensão
+  - `background/` orquestração, agendamento, alarme de follow-up
+  - `popup/` interface da extensão (`popup.html`, `dashboard.html`)
   - `parsers/` parsers HTML por plataforma
   - `scrapers/` content scripts por plataforma
-  - `shared/` normalização, filtro e storage
+  - `shared/` normalização, filtro, storage, módulos de CRM (`applications.js`, `portfolio.js`, `followup-rules.js`, `followup-message.js`)
   - `tests/` testes automatizados e fixtures
 
 ### Licença
