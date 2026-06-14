@@ -5,6 +5,11 @@
 if (typeof importScripts === 'function') {
 	importScripts('/libs/browser-polyfill.js');
 	importScripts('/shared/storage.js', '/shared/normalizer.js', '/shared/filter.js');
+	importScripts(
+		'/shared/followup-rules.js',
+		'/shared/applications.js',
+		'/shared/followup-message.js',
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -12,6 +17,9 @@ if (typeof importScripts === 'function') {
 // ---------------------------------------------------------------------------
 
 const ALARM_NAME = 'fetch-jobs';
+const FOLLOWUP_ALARM_NAME = 'workaholic-followup-daily';
+const FOLLOWUP_HOUR_LOCAL = 9;          // 9h local
+const FOLLOWUP_PERIOD_MIN = 24 * 60;    // 1x/dia
 const SCRAPER_TIMEOUT_MS = 30_000;
 const DEFAULT_FETCH_INTERVAL_MINUTES = 1;
 const AUTH_FLOW_KEY = 'authFlow';
@@ -289,6 +297,59 @@ async function setupAlarm(intervalMinutes) {
 		delayInMinutes: intervalMinutes,
 		periodInMinutes: intervalMinutes,
 	});
+}
+
+/**
+ * Cria alarm diario para checagem de follow-ups na hora FOLLOWUP_HOUR_LOCAL local.
+ * Idempotente — limpa antes de criar.
+ */
+async function setupFollowupAlarm() {
+	await browser.alarms.clear(FOLLOWUP_ALARM_NAME);
+
+	const now  = new Date();
+	const next = new Date(now);
+	next.setHours(FOLLOWUP_HOUR_LOCAL, 0, 0, 0);
+	if (next <= now) next.setDate(next.getDate() + 1);
+
+	await browser.alarms.create(FOLLOWUP_ALARM_NAME, {
+		when:           next.getTime(),
+		periodInMinutes: FOLLOWUP_PERIOD_MIN,
+	});
+}
+
+/**
+ * Varre candidaturas ativas com data_followup <= hoje e ainda nao notificadas.
+ * Para cada uma: gera mensagem, persiste no record, dispara notificacao.
+ */
+async function runFollowupCheck() {
+	if (typeof listDueForFollowup !== 'function') return;
+
+	let due = [];
+	try {
+		due = await listDueForFollowup();
+	} catch (err) {
+		console.warn('[followup] listDueForFollowup falhou:', err);
+		return;
+	}
+
+	for (const app of due) {
+		try {
+			const msg = buildFollowupMessage({ application: app, mode: 'gentle' });
+
+			// Persiste mensagem no record para popup poder copiar via #followup=ID
+			await patchApplication(app.id, { followup_message: msg });
+
+			await createNotificationSafe(`followup-${app.id}`, {
+				type:    'basic',
+				title:   `Workaholic - Follow-up: ${app.empresa || app.plataforma || app.titulo}`,
+				message: 'Clique para copiar mensagem sob medida e abrir painel.',
+			});
+
+			await markNotified(app.id);
+		} catch (err) {
+			console.warn('[followup] item falhou:', app?.id, err);
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1001,11 +1062,35 @@ browser.runtime.onInstalled.addListener(async () => {
 	await browser.alarms.clear(ALARM_NAME);
 	await localSet({ [STOP_KEY]: false, [LOCK_KEY]: null, workerTabId: null });
 	await reloadSupportedTabs();
+
+	await setupFollowupAlarm();
+});
+
+browser.runtime.onStartup.addListener(async () => {
+	await setupFollowupAlarm();
 });
 
 browser.alarms.onAlarm.addListener((alarm) => {
-	if (alarm.name !== ALARM_NAME) return;
-	runFetchCycle().catch(() => {});
+	if (alarm.name === ALARM_NAME) {
+		runFetchCycle().catch(() => {});
+		return;
+	}
+	if (alarm.name === FOLLOWUP_ALARM_NAME) {
+		runFollowupCheck().catch(() => {});
+		return;
+	}
+});
+
+/**
+ * Click numa notificacao de follow-up -> abre popup como aba com hash
+ * #followup=ID. popup.js detecta, le record, copia mensagem pro clipboard.
+ */
+browser.notifications.onClicked.addListener((notificationId) => {
+	if (!notificationId || !notificationId.startsWith('followup-')) return;
+	const appId = notificationId.slice('followup-'.length);
+	const url   = browser.runtime.getURL(`popup/popup.html#followup=${encodeURIComponent(appId)}`);
+	browser.tabs.create({ url, active: true }).catch(() => {});
+	browser.notifications.clear(notificationId).catch(() => {});
 });
 
 browser.storage.onChanged.addListener((changes, areaName) => {

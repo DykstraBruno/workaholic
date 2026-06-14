@@ -2537,6 +2537,71 @@ const isFirefox = typeof browser !== 'undefined' &&
                   typeof browser.runtime !== 'undefined' && 
                   typeof browser.runtime.getBrowserInfo === 'function';
 
+/**
+ * Toast efemero no topo do popup. Cria/usa #wk-toast container.
+ */
+function showFollowupToast(text, kind = 'info') {
+  let el = document.getElementById('wk-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'wk-toast';
+    el.style.cssText =
+      'position:fixed;top:10px;left:50%;transform:translateX(-50%);' +
+      'background:#1f2937;color:#f9fafb;padding:10px 14px;border-radius:6px;' +
+      'font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:99999;' +
+      'border-left:4px solid #22c55e;max-width:90%;';
+    document.body.appendChild(el);
+  }
+  el.style.borderLeftColor = kind === 'error' ? '#ef4444' : '#22c55e';
+  el.textContent = text;
+  clearTimeout(showFollowupToast._t);
+  showFollowupToast._t = setTimeout(() => { if (el) el.remove(); }, 3500);
+}
+
+/**
+ * Detecta hash #followup=ID (vindo do click em notification de follow-up),
+ * le mensagem do record e copia pro clipboard.
+ */
+async function handleFollowupHash() {
+  const m = (location.hash || '').match(/^#followup=([^&]+)/);
+  if (!m) return;
+  const appId = decodeURIComponent(m[1]);
+
+  // Limpa hash pra nao re-disparar em reload
+  history.replaceState(null, '', location.pathname + location.search);
+
+  if (typeof getApplication !== 'function') return;
+  let app;
+  try {
+    app = await getApplication(appId);
+  } catch (err) {
+    console.warn('[followup-hash] getApplication falhou:', err);
+    showFollowupToast('Erro ao carregar candidatura.', 'error');
+    return;
+  }
+  if (!app) {
+    showFollowupToast('Candidatura nao encontrada.', 'error');
+    return;
+  }
+
+  let msg = app.followup_message;
+  if (!msg && typeof buildFollowupMessage === 'function') {
+    msg = buildFollowupMessage({ application: app, mode: 'gentle' });
+  }
+  if (!msg) {
+    showFollowupToast('Nenhuma mensagem gerada para esta candidatura.', 'error');
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(msg);
+    showFollowupToast(`Mensagem de follow-up copiada (${app.titulo}).`);
+  } catch (err) {
+    console.warn('[followup-hash] clipboard falhou:', err);
+    window.prompt('Copie manualmente:', msg);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // Load language preference, apply translations, then init tabs
   localGet(KEYS.LANG).then((result) => {
@@ -2545,6 +2610,9 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAppliedJobs().then(() => loadJobsTab());
     populateJobSelect(_resumeTabJobs);
   });
+
+  // Hash deep-link de follow-up (vindo de notification.onClicked no SW)
+  handleFollowupHash();
 
   // Show stop button if a fetch cycle is already running (alarm-triggered)
   localGet('fetchCycleLock').then((r) => {

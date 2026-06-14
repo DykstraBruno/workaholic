@@ -20,6 +20,9 @@ manifest.background = {
     'shared/storage.js',
     'shared/normalizer.js',
     'shared/filter.js',
+    'shared/followup-rules.js',
+    'shared/applications.js',
+    'shared/followup-message.js',
     'background/service-worker.js',
   ],
 };
