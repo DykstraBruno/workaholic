@@ -2446,6 +2446,56 @@ async function saveAppliedJobs() {
   await localSet({ [KEYS.APPLIED_JOBS]: [...appliedJobs] });
 }
 
+/**
+ * Localiza um job no cache local pelo URL.
+ * Retorna null se nao achou (ex: vaga removida desde o ultimo fetch).
+ */
+async function findJobByUrl(url) {
+  if (!url) return null;
+  const result = await localGet(KEYS.JOBS);
+  const jobs   = result[KEYS.JOBS] ?? [];
+  return jobs.find((j) => j && j.url === url) || null;
+}
+
+/**
+ * Converte um job (schema interno do scraper) para o input de addApplication.
+ * empresa fica vazio — job schema nao tem esse campo. Usuario edita no painel.
+ */
+function mapJobToApplicationInput(job) {
+  if (!job) return null;
+  const plat = (typeof SITE_LABELS === 'object' && SITE_LABELS[job.site]) || job.site || '';
+  return {
+    titulo:         job.title || '(sem titulo)',
+    empresa:        '',
+    plataforma:     plat,
+    link:           job.url || '',
+    descricao_vaga: job.description || '',
+  };
+}
+
+/**
+ * Espelha mudancas de "applied" no CRM (applications.js).
+ * Add -> addApplication (dedupe interno). Remove -> apaga pelo link.
+ * Erros sao silenciosos: feature CRM nao pode quebrar o toggle existente.
+ */
+async function syncAppliedToCrm(url, isNowApplied) {
+  if (typeof addApplication !== 'function') return;  // modulo nao carregado
+  try {
+    if (isNowApplied) {
+      const job = await findJobByUrl(url);
+      if (!job) return;
+      const input = mapJobToApplicationInput(job);
+      if (input) await addApplication(input);
+    } else {
+      const all = await listApplications();
+      const match = all.find((a) => a.link && a.link === url);
+      if (match) await deleteApplication(match.id);
+    }
+  } catch (err) {
+    console.warn('[CRM sync] falhou:', err);
+  }
+}
+
 async function toggleApplied(url, card) {
   if (appliedJobs.has(url)) {
     appliedJobs.delete(url);
@@ -2453,6 +2503,8 @@ async function toggleApplied(url, card) {
     appliedJobs.add(url);
   }
   await saveAppliedJobs();
+  const nowApplied = appliedJobs.has(url);
+  syncAppliedToCrm(url, nowApplied);  // fire-and-forget
   const applied = appliedJobs.has(url);
   card.classList.toggle('job-card--applied', applied);
   const btn = card.querySelector('.job-apply-btn');
@@ -2825,10 +2877,25 @@ document.addEventListener('DOMContentLoaded', () => {
       if (resumeIsPDF && resumeOriginalBytes) {
         resumeOptimizedText = outputText;
         await downloadOptimizedPdfFromOriginal(resumeOriginalBytes, resumeMissingKeywords, `${baseName}.pdf`);
-        return;
+      } else {
+        await downloadAtsFriendlyPDF(outputText, `${baseName}.pdf`);
       }
 
-      await downloadAtsFriendlyPDF(outputText, `${baseName}.pdf`);
+      // Auto-feed CRM: marca como candidatado + cria registro rico
+      if (job && job.url) {
+        if (!appliedJobs.has(job.url)) {
+          appliedJobs.add(job.url);
+          await saveAppliedJobs();
+        }
+        if (typeof addApplication === 'function') {
+          try {
+            const input = mapJobToApplicationInput(job);
+            if (input) await addApplication(input);
+          } catch (err) {
+            console.warn('[CRM auto-feed] falhou:', err);
+          }
+        }
+      }
     } catch (error) {
       console.error(error);
       window.alert(t('downloadFail', error.message));
