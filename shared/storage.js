@@ -1,11 +1,15 @@
 'use strict';
 
 const KEYS = {
-  PROFILE:       'profile',
-  PROFILE_LOCAL: 'profile_local_cache',
-  SEEN:          'seen_jobs',
-  JOBS:          'jobs',
-  HEALTH_PREFIX: 'health_',
+  PROFILE:           'profile',
+  PROFILE_LOCAL:     'profile_local_cache',
+  SEEN:              'seen_jobs',
+  JOBS:              'jobs',
+  HEALTH_PREFIX:     'health_',
+  APPLICATIONS_LOCAL: 'applications_local',   // map id -> full record
+  APPLICATIONS_SYNC:  'applications_sync',    // map id -> { status, plataforma, data_followup, updated_at }
+  PORTFOLIO:          'portfolio',            // map id -> project
+  FOLLOWUP_STATE:     'followup_state',       // { last_run_at, fired_ids:[] }
 };
 
 // Detect browser API
