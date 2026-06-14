@@ -2657,6 +2657,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const stopBtn  = document.getElementById('stop-fetch-btn');
   const clearBtn = document.getElementById('clear-cache-btn');
 
+  // Open Kanban dashboard in a new tab
+  const kanbanBtn = document.getElementById('open-kanban-btn');
+  if (kanbanBtn) {
+    kanbanBtn.addEventListener('click', () => {
+      const url = browser.runtime.getURL('popup/dashboard.html');
+      browser.tabs.create({ url, active: true }).catch(() => {});
+    });
+  }
+
   stopBtn.addEventListener('click', async () => {
     stopBtn.disabled = true;
     stopBtn.textContent = 'Parando...';
