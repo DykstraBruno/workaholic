@@ -2,6 +2,10 @@ node_modules/
 coverage/
 .DS_Store
 claude.md
+CLAUDE.md
+AGENTS.md
 .claude/
+ruvector.db
+*.db
 dist-cws/
 workaholic-cws.zip
